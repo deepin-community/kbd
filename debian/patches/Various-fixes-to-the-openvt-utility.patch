@@ -1,0 +1,69 @@
+From: Michael Schutte <michi@debian.org>
+Date: Thu, 10 Dec 2015 20:31:03 +0100
+Subject: Various fixes to the openvt utility
+
+Forwarded: no
+Bug-Debian: http://bugs.debian.org/190387
+Bug-Debian: http://bugs.debian.org/630108
+Bug-Debian: http://bugs.debian.org/642324
+
+Three unrelated fixes:
+
+ * Propagate child exit codes in "openvt -w".
+
+ * consfd stores the file descriptor referring to the console.  In some
+   cases, this will be one of the stdio fds, which are closed in the
+   child process.  Avoid closing it again.
+
+ * When showing the help output, only exit with a zero status if the
+   "-h" option was given.
+---
+ src/openvt.c | 13 +++++++++----
+ 1 file changed, 9 insertions(+), 4 deletions(-)
+
+--- a/src/openvt.c
++++ b/src/openvt.c
+@@ -238,10 +238,12 @@
+ 			case 'V':
+ 				print_version_and_exit();
+ 				break;
+-			default:
+ 			case 'h':
+ 				usage(EXIT_SUCCESS, opthelp);
+ 				break;
++			default:
++				usage(EXIT_FAILURE, opthelp);
++				break;
+ 		}
+ 	}
+ 
+@@ -364,7 +366,8 @@
+ 		close(0);
+ 		close(1);
+ 		close(2);
+-		close(consfd);
++		if (consfd > 2)
++			close(consfd);
+ 
+ 		if ((dup2(fd, 0) == -1) || (dup2(fd, 1) == -1) || (dup2(fd, 2) == -1))
+ 			kbd_error(1, errno, "dup");
+@@ -387,7 +390,6 @@
+ 	if (do_wait) {
+ 		int retval = 0; /* actual value returned form process */
+ 
+-		wait(NULL);
+ 		waitpid(pid, &retval, 0);
+ 
+ 		if (show) { /* Switch back... */
+@@ -404,7 +406,10 @@
+ 
+ 		/* if all our stuff went right, we want to return the exit code of the command we ran
+ 		   super vital for scripting loops etc */
+-		return (retval);
++		if (WIFEXITED(retval))
++			return WEXITSTATUS(retval);
++		else
++			return 127;
+ 	}
+ 
+ 	return EXIT_SUCCESS;

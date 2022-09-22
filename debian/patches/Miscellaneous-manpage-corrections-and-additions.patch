@@ -1,0 +1,266 @@
+From: Michael Schutte <michi@debian.org>
+Date: Thu, 10 Dec 2015 20:31:03 +0100
+Subject: Miscellaneous manpage corrections and additions
+
+Forwarded: no
+
+ * Remove .IX lines.
+ * Fix a groff syntax error in splitfont.1.
+ * Correct a typo in mk_modmap.8, kindly pointed out by lintian.
+ * Document that "openvt -e" has to be a session leader, closes:
+   #610373.
+---
+ docs/man/man1/dumpkeys.1.in      |  1 -
+ docs/man/man1/kbd_mode.1         |  1 -
+ docs/man/man1/loadkeys.1.in      |  1 -
+ docs/man/man1/openvt.1           |  9 ++++++++-
+ docs/man/man1/psfaddtable.1      |  1 -
+ docs/man/man1/psfgettable.1      |  1 -
+ docs/man/man1/psfstriptable.1    |  1 -
+ docs/man/man1/psfxtable.1        |  1 -
+ docs/man/man1/setleds.1          | 13 ++++++-------
+ docs/man/man1/setmetamode.1      |  1 -
+ docs/man/man1/showkey.1          |  1 -
+ docs/man/man1/unicode_start.1    |  1 -
+ docs/man/man1/unicode_stop.1     |  1 -
+ docs/man/man1misc/splitfont.1    |  2 +-
+ docs/man/man5/keymaps.5          |  5 -----
+ docs/man/man8/resizecons.8       |  9 +++++++--
+ docs/man/man8/setfont.8.in       |  1 -
+ docs/man/man8misc/mk_modmap.8    |  4 ++--
+ docs/man/man8misc/setvesablank.8 |  1 -
+ 19 files changed, 24 insertions(+), 31 deletions(-)
+
+--- a/docs/man/man1/dumpkeys.1.in
++++ b/docs/man/man1/dumpkeys.1.in
+@@ -16,7 +16,6 @@
+ .B \-v \-\-verbose \-V \-\-version
+ ]
+ .SH DESCRIPTION
+-.IX "dumpkeys command" "" "\fLdumpkeys\fR command"
+ .LP
+ .B dumpkeys
+ writes, to the standard output, the current contents of the keyboard
+--- a/docs/man/man1/kbd_mode.1
++++ b/docs/man/man1/kbd_mode.1
+@@ -12,7 +12,6 @@
+ .I -C CONSOLE
+ ]
+ .SH DESCRIPTION
+-.IX "kbd_mode command" "" "\fLkbd_mode\fR command"  
+ .LP
+ Without argument,
+ .B kbd_mode
+--- a/docs/man/man1/loadkeys.1.in
++++ b/docs/man/man1/loadkeys.1.in
+@@ -37,7 +37,6 @@
+ ]
+ .LP
+ .SH DESCRIPTION
+-.IX "loadkeys command" "" "\fLloadkeys\fR command"
+ .LP
+ The program
+ .B loadkeys
+--- a/docs/man/man1/openvt.1
++++ b/docs/man/man1/openvt.1
+@@ -27,7 +27,14 @@
+ .I "\-e, \-\-exec"
+ Directly execute the given command, without forking.
+ This option is meant for use in
+-.IR /etc/inittab .
++.IR /etc/inittab .
++If you want to use this feature in another context, be aware that
++.B openvt
++has to be a session leader in order for \-e to work.  See
++.BR setsid (2)
++or
++.BR setsid (1)
++on how to achieve this.
+ .TP
+ .I "\-s, \-\-switch"
+ Switch to the new VT when starting the command. The VT of the new command
+--- a/docs/man/man1/psfaddtable.1
++++ b/docs/man/man1/psfaddtable.1
+@@ -6,7 +6,6 @@
+ .B psfaddtable
+ .I fontfile tablefile outfile
+ .SH DESCRIPTION
+-.IX "psfaddtable command" "" "\fLpsfaddtable\fR command"  
+ .LP
+ .B psfaddtable
+ takes a console font in .psf format given by
+--- a/docs/man/man1/psfgettable.1
++++ b/docs/man/man1/psfgettable.1
+@@ -7,7 +7,6 @@
+ .I fontfile
+ .RI [ outfile ]
+ .SH DESCRIPTION
+-.IX "psfgettable command" "" "\fLpsfgettable\fR command"  
+ .LP
+ .B psfgettable
+ extracts the embedded Unicode character table from a .psf format
+--- a/docs/man/man1/psfstriptable.1
++++ b/docs/man/man1/psfstriptable.1
+@@ -6,7 +6,6 @@
+ .B psfstriptable
+ .I fontfile outfile
+ .SH DESCRIPTION
+-.IX "psfstriptable command" "" "\fLpsfstriptable\fR command"  
+ .LP
+ .B psfstriptable
+ reads a .psf format console font from 
+--- a/docs/man/man1/psfxtable.1
++++ b/docs/man/man1/psfxtable.1
+@@ -14,7 +14,6 @@
+ .IR outtable ]
+ .RB [ \-nt ]
+ .SH DESCRIPTION
+-.IX "psfxtable command" "" "\fLpsfxtable\fR command"
+ .LP
+ .B psfxtable
+ handles the embedded Unicode character table for .psf format
+--- a/docs/man/man1/setleds.1
++++ b/docs/man/man1/setleds.1
+@@ -7,7 +7,6 @@
+ .RI [ "-v" "] [" "-L" "] [" "-D" "] [" "-F" ]
+ .RI [ {+|-}num "] [" {+|-}caps "] [" {+|-}scroll ]
+ .SH DESCRIPTION
+-.IX "setleds command" "" "\fLsetleds\fR command"
+ .LP
+ .B Setleds
+ reports and changes the led flag settings of a VT
+@@ -16,7 +15,7 @@
+ .B setleds
+ prints the current settings.
+ With arguments, it sets or clears the indicated flags
+-(and leaves the others unchanged). The settings before
++(and leaves the others unchanged).  The settings before
+ and after the change are reported if the \-v flag is given.
+ .LP
+ The led flag settings are specific for each VT (and the VT
+@@ -37,7 +36,7 @@
+ .B setleds
+ will not touch the VT flags, but only change the leds.
+ From this moment on, the leds will no longer reflect the VT flags
+-(but display whatever is put into them). The command
++(but display whatever is put into them).  The command
+ .B "setleds -L"
+ (without further arguments) will restore the situation in which
+ the leds reflect the VT flags.
+@@ -45,7 +44,7 @@
+ One might use
+ .B setleds
+ in /etc/rc to define the initial and default state of NumLock,
+-e.g. by
++e.g.\& by
+ .br
+ .in +5m
+ INITTY=/dev/tty[1-8]
+--- a/docs/man/man1/setmetamode.1
++++ b/docs/man/man1/setmetamode.1
+@@ -11,7 +11,6 @@
+ .I argument
+ ]
+ .SH DESCRIPTION
+-.IX "setmetamode command" "" "\fLsetmetamode\fR command"  
+ .LP
+ Without argument,
+ .B setmetamode
+--- a/docs/man/man1/showkey.1
++++ b/docs/man/man1/showkey.1
+@@ -5,7 +5,6 @@
+ .SH SYNOPSIS
+ showkey [\-h|\-\-help] [\-a|\-\-ascii] [\-s|\-\-scancodes] [\-k|\-\-keycodes] [\-V|\-\-version]
+ .SH DESCRIPTION
+-.IX "showkey command" "" "\fLshowkey\fR command"  
+ .LP
+ .B showkey
+ prints to standard output either the scan codes or the keycode
+--- a/docs/man/man1/unicode_start.1
++++ b/docs/man/man1/unicode_start.1
+@@ -6,7 +6,6 @@
+ .B unicode_start
+ .RI [ font " [" umap ]]
+ .SH DESCRIPTION
+-.IX "unicode_start command" "" "\fLunicode_start\fR command"
+ .LP
+ The
+ .B unicode_start
+--- a/docs/man/man1/unicode_stop.1
++++ b/docs/man/man1/unicode_stop.1
+@@ -5,7 +5,6 @@
+ .SH SYNOPSIS
+ .B unicode_stop
+ .SH DESCRIPTION
+-.IX "unicode_stop command" "" "\fLunicode_stop\fR command"
+ .LP
+ The
+ .B unicode_stop
+--- a/docs/man/man5/keymaps.5
++++ b/docs/man/man5/keymaps.5
+@@ -5,11 +5,6 @@
+ .SH NAME
+ keymaps \- keyboard table descriptions for loadkeys and dumpkeys
+ .SH DESCRIPTION
+-.IX "keymaps" "" "\fLkeymaps\fR \(em keyboard table descriptions for loadkeys and dumpkeys" ""
+-.IX "loadkeys" "keyboard table descriptions" "\fLloadkeys\fR" "keyboard table descriptions"
+-.IX "dumpkeys" "keyboard table descriptions" "\fLdumpkeys\fR" "keyboard table descriptions"
+-.IX keyboard "table descriptions for loadkeys and dumpkeys" keyboard "table descriptions for \fLloadkeys\fR and \fLdumpkeys\fR"
+-.IX "translation tables"
+ .LP
+ These files are used by
+ .BR loadkeys (1)
+--- a/docs/man/man8/resizecons.8
++++ b/docs/man/man8/resizecons.8
+@@ -56,7 +56,11 @@
+ 
+ .SH BUGS
+ .I resizecons
+-does not work on all hardware.
++does not work on all hardware.  For example, it cannot be used on
++platforms other than x86 and x86_64.  See the
++.BR fbset (1)
++program if you are looking for an alternative.
++
+ This command used to be called
+ .I resize,
+ but was renamed to avoid conflict with another command with the same name.
+@@ -66,5 +70,6 @@
+ .BR stty (1),
+ .BR selection (1),
+ .BR restoretextmode (8),
+-.BR disalloc (8)
++.BR disalloc (8),
++.BR fbset (1)
+ 
+--- a/docs/man/man8/setfont.8.in
++++ b/docs/man/man8/setfont.8.in
+@@ -12,7 +12,6 @@
+ .IR H ]
+ .RB [ -v ]
+ .RB [ -V ]
+-.IX "setfont command" "" "\fLsetfont\fR command"
+ .SH DESCRIPTION
+ The
+ .B setfont
+--- a/docs/man/man8misc/mk_modmap.8
++++ b/docs/man/man8misc/mk_modmap.8
+@@ -26,7 +26,7 @@
+ (In Debian, these are in the "xlibs-dev" package).
+ .SH NOTES
+ Since XFree version 2.1, X initialises its keymap using the Linux
+-keymap, so xmodmap will often be superflous.
++keymap, so xmodmap will often be superfluous.
+ 
+ .SH SEE ALSO
+ .BR dumpkeys (1),
+--- a/docs/man/man8misc/setvesablank.8
++++ b/docs/man/man8misc/setvesablank.8
+@@ -16,7 +16,6 @@
+ ]
+ .LP
+ .SH DESCRIPTION
+-.IX "setvesablank command" "" "\fLsetvesablank\fR command"
+ .LP
+ The program
+ .B setvesablank
