@@ -11,7 +11,7 @@
  */
 %{
 #include "config.h"
-#include "libcommon.h"
+#include "array_size.h"
 
 #include "contextP.h"
 #include "ksyms.h"
@@ -27,19 +27,18 @@
 
 #ifndef STRDATA_STRUCT
 #define STRDATA_STRUCT
-#define MAX_PARSER_STRING 512
-struct strdata {
-	unsigned long len;
-	unsigned char data[MAX_PARSER_STRING];
+#define MAX_PARSER_STRING 512 // Maximum length of kbsentry.kb_string
+struct string {
+	size_t str_len;
+	char   str_data[MAX_PARSER_STRING];
 };
 #endif
 }
 
 %language "C"
-%yacc
 %defines
 %debug
-%error-verbose
+%define parse.error verbose
 
 /* Pure yylex.  */
 %define api.pure
@@ -56,7 +55,7 @@ struct strdata {
 
 %union {
 	int num;
-	struct strdata str;
+	struct string str;
 }
 
 %type <str>  STRLITERAL
@@ -69,7 +68,7 @@ struct strdata {
 
 %{
 static int
-yyerror(yyscan_t scanner __attribute__ ((unused)),
+yyerror(yyscan_t scanner KBD_ATTR_UNUSED,
         struct lk_ctx *ctx, const char *s)
 {
 	ERR(ctx, "%s", s);
@@ -82,7 +81,7 @@ strings_as_usual(struct lk_ctx *ctx)
 	/*
 	 * 26 strings, mostly inspired by the VT100 family
 	 */
-	const char *stringvalues[30] = {
+	const char *stringvalues[] = {
 		/* F1 .. F20 */
 		"\033[[A",  "\033[[B",  "\033[[C",  "\033[[D",  "\033[[E",
 		"\033[17~", "\033[18~", "\033[19~", "\033[20~", "\033[21~",
@@ -92,16 +91,16 @@ strings_as_usual(struct lk_ctx *ctx)
 		/* Find,    Insert,     Remove,     Select,     Prior */
 		"\033[1~",  "\033[2~",  "\033[3~",  "\033[4~",  "\033[5~",
 		/* Next,    Macro,      Help,       Do,         Pause */
-		"\033[6~",  0,          0,          0,          0
+		"\033[6~",  NULL,       NULL,       NULL,       NULL
 	};
 	unsigned char i;
 
-	for (i = 0; i < 30; i++) {
+	for (i = 0; i < ARRAY_SIZE(stringvalues); i++) {
 		if (stringvalues[i]) {
 			struct kbsentry ke;
+
 			ke.kb_func = i;
-			strncpy((char *)ke.kb_string, stringvalues[i], sizeof(ke.kb_string));
-			ke.kb_string[sizeof(ke.kb_string) - 1] = 0;
+			strlcpy((char *)ke.kb_string, stringvalues[i], sizeof(ke.kb_string));
 
 			if (lk_add_func(ctx, &ke) == -1)
 				return -1;
@@ -113,62 +112,53 @@ strings_as_usual(struct lk_ctx *ctx)
 static int
 compose_as_usual(struct lk_ctx *ctx, char *charset)
 {
+	struct lk_kbdiacr def_latin1_composes[] = {
+		{ '`' , 'A',  0300 }, { '`' , 'a',  0340 },
+		{ '\'', 'A',  0301 }, { '\'', 'a',  0341 },
+		{ '^' , 'A',  0302 }, { '^' , 'a',  0342 },
+		{ '~' , 'A',  0303 }, { '~' , 'a',  0343 },
+		{ '"' , 'A',  0304 }, { '"' , 'a',  0344 },
+		{ 'O' , 'A',  0305 }, { 'o' , 'a',  0345 },
+		{ '0' , 'A',  0305 }, { '0' , 'a',  0345 },
+		{ 'A' , 'A',  0305 }, { 'a' , 'a',  0345 },
+		{ 'A' , 'E',  0306 }, { 'a' , 'e',  0346 },
+		{ ',' , 'C',  0307 }, { ',' , 'c',  0347 },
+		{ '`' , 'E',  0310 }, { '`' , 'e',  0350 },
+		{ '\'', 'E',  0311 }, { '\'', 'e',  0351 },
+		{ '^' , 'E',  0312 }, { '^' , 'e',  0352 },
+		{ '"' , 'E',  0313 }, { '"' , 'e',  0353 },
+		{ '`' , 'I',  0314 }, { '`' , 'i',  0354 },
+		{ '\'', 'I',  0315 }, { '\'', 'i',  0355 },
+		{ '^' , 'I',  0316 }, { '^' , 'i',  0356 },
+		{ '"' , 'I',  0317 }, { '"' , 'i',  0357 },
+		{ '-' , 'D',  0320 }, { '-' , 'd',  0360 },
+		{ '~' , 'N',  0321 }, { '~' , 'n',  0361 },
+		{ '`' , 'O',  0322 }, { '`' , 'o',  0362 },
+		{ '\'', 'O',  0323 }, { '\'', 'o',  0363 },
+		{ '^' , 'O',  0324 }, { '^' , 'o',  0364 },
+		{ '~' , 'O',  0325 }, { '~' , 'o',  0365 },
+		{ '"' , 'O',  0326 }, { '"' , 'o',  0366 },
+		{ '/' , 'O',  0330 }, { '/' , 'o',  0370 },
+		{ '`' , 'U',  0331 }, { '`' , 'u',  0371 },
+		{ '\'', 'U',  0332 }, { '\'', 'u',  0372 },
+		{ '^' , 'U',  0333 }, { '^' , 'u',  0373 },
+		{ '"' , 'U',  0334 }, { '"' , 'u',  0374 },
+		{ '\'', 'Y',  0335 }, { '\'', 'y',  0375 },
+		{ 'T' , 'H',  0336 }, { 't' , 'h',  0376 },
+		{ 's' , 's',  0337 }, { '"' , 'y',  0377 },
+		{ 's' , 'z',  0337 }, { 'i' , 'j',  0377 }
+	};
+
 	if (charset && strcmp(charset, "iso-8859-1")) {
 		ERR(ctx, _("loadkeys: don't know how to compose for %s"), charset);
 		return -1;
-
-	} else {
-		struct ccc {
-			unsigned char c1, c2, c3;
-		} def_latin1_composes[68] = {
-			{ '`', 'A', 0300 }, { '`', 'a', 0340 },
-			{ '\'', 'A', 0301 }, { '\'', 'a', 0341 },
-			{ '^', 'A', 0302 }, { '^', 'a', 0342 },
-			{ '~', 'A', 0303 }, { '~', 'a', 0343 },
-			{ '"', 'A', 0304 }, { '"', 'a', 0344 },
-			{ 'O', 'A', 0305 }, { 'o', 'a', 0345 },
-			{ '0', 'A', 0305 }, { '0', 'a', 0345 },
-			{ 'A', 'A', 0305 }, { 'a', 'a', 0345 },
-			{ 'A', 'E', 0306 }, { 'a', 'e', 0346 },
-			{ ',', 'C', 0307 }, { ',', 'c', 0347 },
-			{ '`', 'E', 0310 }, { '`', 'e', 0350 },
-			{ '\'', 'E', 0311 }, { '\'', 'e', 0351 },
-			{ '^', 'E', 0312 }, { '^', 'e', 0352 },
-			{ '"', 'E', 0313 }, { '"', 'e', 0353 },
-			{ '`', 'I', 0314 }, { '`', 'i', 0354 },
-			{ '\'', 'I', 0315 }, { '\'', 'i', 0355 },
-			{ '^', 'I', 0316 }, { '^', 'i', 0356 },
-			{ '"', 'I', 0317 }, { '"', 'i', 0357 },
-			{ '-', 'D', 0320 }, { '-', 'd', 0360 },
-			{ '~', 'N', 0321 }, { '~', 'n', 0361 },
-			{ '`', 'O', 0322 }, { '`', 'o', 0362 },
-			{ '\'', 'O', 0323 }, { '\'', 'o', 0363 },
-			{ '^', 'O', 0324 }, { '^', 'o', 0364 },
-			{ '~', 'O', 0325 }, { '~', 'o', 0365 },
-			{ '"', 'O', 0326 }, { '"', 'o', 0366 },
-			{ '/', 'O', 0330 }, { '/', 'o', 0370 },
-			{ '`', 'U', 0331 }, { '`', 'u', 0371 },
-			{ '\'', 'U', 0332 }, { '\'', 'u', 0372 },
-			{ '^', 'U', 0333 }, { '^', 'u', 0373 },
-			{ '"', 'U', 0334 }, { '"', 'u', 0374 },
-			{ '\'', 'Y', 0335 }, { '\'', 'y', 0375 },
-			{ 'T', 'H', 0336 }, { 't', 'h', 0376 },
-			{ 's', 's', 0337 }, { '"', 'y', 0377 },
-			{ 's', 'z', 0337 }, { 'i', 'j', 0377 }
-		};
-		int i;
-		for (i = 0; i < 68; i++) {
-			struct lk_kbdiacr ptr;
-			struct ccc c = def_latin1_composes[i];
-
-			ptr.diacr  = c.c1;
-			ptr.base   = c.c2;
-			ptr.result = c.c3;
-
-			if (lk_append_compose(ctx, &ptr) == -1)
-				return -1;
-		}
 	}
+
+	for (unsigned int i = 0; i < ARRAY_SIZE(def_latin1_composes); i++) {
+		if (lk_append_compose(ctx, &def_latin1_composes[i]) == -1)
+			return -1;
+	}
+
 	return 0;
 }
 
@@ -190,10 +180,10 @@ line		: EOL
 		;
 charsetline	: CHARSET STRLITERAL EOL
 			{
-				if (lk_set_charset(ctx, (char *) $2.data)) {
+				if (lk_set_charset(ctx, $2.str_data)) {
 					ERR(ctx,
 						_("unknown charset %s - ignoring charset request\n"),
-						(char *) $2.data);
+						$2.str_data);
 					YYERROR;
 				}
 				ctx->keywords |= LK_KEYWORD_CHARSET;
@@ -201,7 +191,7 @@ charsetline	: CHARSET STRLITERAL EOL
 				/* Unicode: The first 256 code points were made
 				   identical to the content of ISO 8859-1 */
 				if (ctx->flags & LK_FLAG_PREFER_UNICODE &&
-				    !strcasecmp((char *) $2.data, "iso-8859-1"))
+				    !strcasecmp($2.str_data, "iso-8859-1"))
 					ctx->flags ^= LK_FLAG_PREFER_UNICODE;
 			}
 		;
@@ -219,12 +209,12 @@ usualstringsline: STRINGS AS USUAL EOL
 		;
 usualcomposeline: COMPOSE AS USUAL FOR STRLITERAL EOL
 			{
-				if (compose_as_usual(ctx, (char *) $5.data) == -1)
+				if (compose_as_usual(ctx, $5.str_data) == -1)
 					YYERROR;
 			}
 		  | COMPOSE AS USUAL EOL
 			{
-				if (compose_as_usual(ctx, 0) == -1)
+				if (compose_as_usual(ctx, NULL) == -1)
 					YYERROR;
 			}
 		;
@@ -262,11 +252,9 @@ strline		: STRING LITERAL EQUALS STRLITERAL EOL
 
 				ke.kb_func = (unsigned char) KVAL($2);
 
-				strncpy((char *) ke.kb_string,
-				        (char *) $4.data,
+				strlcpy((char *) ke.kb_string,
+				        $4.str_data,
 				        sizeof(ke.kb_string));
-
-				ke.kb_string[sizeof(ke.kb_string) - 1] = 0;
 
 				if (lk_add_func(ctx, &ke) == -1)
 					YYERROR;
@@ -293,8 +281,8 @@ compline        : COMPOSE compsym compsym TO CCHAR EOL
 					YYERROR;
 			}
                 ;
-compsym		: CCHAR		{	$$ = $1;		}
-		| UNUMBER	{	$$ = $1 ^ 0xf000;	}
+compsym		: CCHAR		{	$$ = $1;	}
+		| UNUMBER	{	$$ = U($1);	}
 		;
 singleline	: KEYCODE NUMBER EQUALS rvalue0 EOL
 			{
@@ -395,8 +383,8 @@ rvalue1		: rvalue
 		;
 rvalue		: NUMBER	{ $$ = convert_code(ctx, $1, TO_AUTO);		}
                 | PLUS NUMBER	{ $$ = add_capslock(ctx, $2);			}
-		| UNUMBER	{ $$ = convert_code(ctx, $1^0xf000, TO_AUTO);	}
-		| PLUS UNUMBER	{ $$ = add_capslock(ctx, $2^0xf000);		}
+		| UNUMBER	{ $$ = convert_code(ctx, U($1), TO_AUTO);	}
+		| PLUS UNUMBER	{ $$ = add_capslock(ctx, U($2));		}
 		| LITERAL	{ $$ = $1;					}
                 | PLUS LITERAL	{ $$ = add_capslock(ctx, $2);			}
 		;
@@ -406,25 +394,19 @@ int
 lk_parse_keymap(struct lk_ctx *ctx, struct kbdfile *fp)
 {
 	yyscan_t scanner;
-	int rc = -1;
+	int ret = 0;
+
+	INFO(ctx, _("Loading %s"), kbdfile_get_pathname(fp));
 
 	ctx->mod = 0;
 
 	yylex_init_extra(ctx, &scanner);
 
-	INFO(ctx, _("Loading %s"), kbdfile_get_pathname(fp));
+	ret = ret ?: stack_push(ctx, fp, scanner);
+	ret = ret ?: yyparse(scanner, ctx);
 
-	if (stack_push(ctx, fp, scanner) == -1)
-		goto fail;
-
-	if (yyparse(scanner, ctx))
-		goto fail;
-
-	rc = 0;
-
-fail:
 	stack_pop(ctx, scanner);
-
 	yylex_destroy(scanner);
-	return rc;
+
+	return (ret ? -1 : 0);
 }

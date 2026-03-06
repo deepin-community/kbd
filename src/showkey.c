@@ -16,11 +16,9 @@
 
 #include "libcommon.h"
 
-int tmp; /* for debugging */
-
-int fd;
-int oldkbmode;
-struct termios old;
+static int fd;
+static int oldkbmode;
+static struct termios old;
 
 /*
  * version 0.81 of showkey would restore kbmode unconditially to XLATE,
@@ -70,7 +68,7 @@ clean_up(void)
 	close(fd);
 }
 
-static void __attribute__((noreturn))
+static void KBD_ATTR_NORETURN
 die(int x)
 {
 	printf(_("caught signal %d, cleaning up...\n"), x);
@@ -78,70 +76,53 @@ die(int x)
 	exit(EXIT_FAILURE);
 }
 
-static void __attribute__((noreturn))
-watch_dog(int x __attribute__((unused)))
+static void KBD_ATTR_NORETURN
+watch_dog(int x KBD_ATTR_UNUSED)
 {
 	clean_up();
 	exit(EXIT_SUCCESS);
 }
 
-static void __attribute__((noreturn))
+static void KBD_ATTR_NORETURN
 usage(int rc, const struct kbd_help *options)
 {
-	const struct kbd_help *h;
-	fprintf(stderr, _("Usage: %s [option...]\n"), get_progname());
-	if (options) {
-		int max = 0;
+	fprintf(stderr, _("Usage: %s [option...]\n"), program_invocation_short_name);
 
-		fprintf(stderr, "\n");
-		fprintf(stderr, _("Options:"));
-		fprintf(stderr, "\n");
-
-		for (h = options; h && h->opts; h++) {
-			int len = (int) strlen(h->opts);
-			if (max < len)
-				max = len;
-		}
-		max += 2;
-
-		for (h = options; h && h->opts; h++)
-			fprintf(stderr, "  %-*s %s\n", max, h->opts, h->desc);
-	}
-
-	fprintf(stderr, "\n");
-	fprintf(stderr, _("Report bugs to authors.\n"));
-	fprintf(stderr, "\n");
+	print_options(options);
+	print_report_bugs();
 
 	exit(rc);
 }
 
 int main(int argc, char *argv[])
 {
-	const char *short_opts          = "haskV";
+	const char *short_opts          = "haskVt:";
 	const struct option long_opts[] = {
 		{ "help", no_argument, NULL, 'h' },
 		{ "ascii", no_argument, NULL, 'a' },
 		{ "scancodes", no_argument, NULL, 's' },
 		{ "keycodes", no_argument, NULL, 'k' },
+		{ "timeout", required_argument, NULL, 't' },
 		{ "version", no_argument, NULL, 'V' },
 		{ NULL, 0, NULL, 0 }
 	};
 	int c;
 	int show_keycodes = 1;
 	int print_ascii   = 0;
+	int timeout = 10;
 
 	struct termios new = { 0 };
 	unsigned char buf[18]; /* divisible by 3 */
 	int i;
 	ssize_t n;
 
-	set_progname(argv[0]);
 	setuplocale();
 
 	const struct kbd_help opthelp[] = {
 		{ "-a, --ascii",     _("display the decimal/octal/hex values of the keys.") },
 		{ "-s, --scancodes", _("display only the raw scan-codes.") },
 		{ "-k, --keycodes",  _("display only the interpreted keycodes (default).") },
+		{ "-t, --timeout",   _("set timeout, default 10")     },
 		{ "-h, --help",      _("print this usage message.") },
 		{ "-V, --version",   _("print version number.")     },
 		{ NULL, NULL }
@@ -163,6 +144,12 @@ int main(int argc, char *argv[])
 				break;
 			case 'h':
 				usage(EXIT_SUCCESS, opthelp);
+				break;
+			case 't':
+				timeout = atoi(optarg);
+				/*  in anycase if conversion wrong */
+				if (timeout < 1)
+					timeout = 10;
 				break;
 			case '?':
 				usage(EX_USAGE, opthelp);
@@ -258,12 +245,12 @@ int main(int argc, char *argv[])
 		kbd_error(EXIT_FAILURE, errno, "ioctl KDSKBMODE");
 	}
 
-	printf(_("press any key (program terminates 10s after last keypress)...\n"));
+	printf(_("press any key (program terminates %ds after last keypress)...\n"), timeout);
 
 	/* show scancodes */
 	if (!show_keycodes) {
 		while (1) {
-			alarm(10);
+			alarm((unsigned int) timeout);
 			n = read(fd, buf, sizeof(buf));
 			for (i = 0; i < n; i++)
 				printf("0x%02x ", buf[i]);
@@ -275,7 +262,7 @@ int main(int argc, char *argv[])
 
 	/* show keycodes - 2.6 allows 3-byte reports */
 	while (1) {
-		alarm(10);
+		alarm((unsigned int) timeout);
 		n = read(fd, buf, sizeof(buf));
 		i = 0;
 		while (i < n) {

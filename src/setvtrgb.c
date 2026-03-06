@@ -17,7 +17,7 @@ static unsigned char cmap[3 * 16];
 /* Standard VGA terminal colors, matching those hardcoded in the Linux kernel's
  * drivers/char/vt.c
  */
-unsigned char vga_colors[] = {
+static unsigned char vga_colors[] = {
 	0x00, 0x00, 0x00,
 	0xaa, 0x00, 0x00,
 	0x00, 0xaa, 0x00,
@@ -36,50 +36,37 @@ unsigned char vga_colors[] = {
 	0xff, 0xff, 0xff,
 };
 
-static void __attribute__((noreturn))
+static void KBD_ATTR_NORETURN
 usage(int rc, const struct kbd_help *options)
 {
-	const struct kbd_help *h;
-
-	fprintf(stderr, _("Usage: %s [option...] [vga|FILE|-]\n"), get_progname());
+	fprintf(stderr, _("Usage: %s [option...] [vga|FILE|-]\n"), program_invocation_short_name);
 	fprintf(stderr, "\n");
 	fprintf(stderr, _(
-				"If you use the FILE parameter, FILE should be exactly 3 lines of\n"
-				"comma-separated decimal values for RED, GREEN, and BLUE.\n"
+				"If you use the FILE parameter, it can be either in decimal\n"
+				"or hexadecimal format, and will be detected on runtime.\n"
 				"\n"
+				"Decimal FILE format should be exactly 3 lines of comma-separated\n"
+				"decimal values for RED, GREEN, and BLUE.\n"
 				"To seed a valid FILE:\n"
 				"   cat /sys/module/vt/parameters/default_{red,grn,blu} > FILE\n"
 				"\n"
-				"and then edit the values in FILE.\n"
+				"Hexadecimal FILE format should be exactly 16 lines of hex triplets\n"
+				"for RED, GREEN and BLUE, prefixed with a number sign (#).\n"
+				"For example:\n"
+				"   #000000\n"
+				"   #AA0000\n"
+				"   #00AA00\n"
+				"And so on, for all the 16 colors.\n"
 			 ));
 
-	if (options) {
-		int max = 0;
-
-		fprintf(stderr, "\n");
-		fprintf(stderr, _("Options:"));
-		fprintf(stderr, "\n");
-
-		for (h = options; h && h->opts; h++) {
-			int len = (int) strlen(h->opts);
-			if (max < len)
-				max = len;
-		}
-		max += 2;
-
-		for (h = options; h && h->opts; h++)
-			fprintf(stderr, "  %-*s %s\n", max, h->opts, h->desc);
-	}
-
-	fprintf(stderr, "\n");
-	fprintf(stderr, _("Report bugs to authors.\n"));
-	fprintf(stderr, "\n");
+	print_options(options);
+	print_report_bugs();
 
 	exit(rc);
 }
 
 static void
-parse_file(FILE *fd, const char *filename)
+parse_dec_file(FILE *fd, const char *filename)
 {
 	int c;
 	unsigned int rows, cols, val;
@@ -111,6 +98,44 @@ parse_file(FILE *fd, const char *filename)
 	}
 }
 
+static void
+parse_hex_file(FILE *fd, const char *filename)
+{
+	int c,l;
+	unsigned int r, g, b;
+
+	for (l = 0; l < 16; l++) {
+		if ((c = fscanf(fd, "#%2x%2x%2x\n", &r, &g, &b)) != 3) {
+			if (c == EOF)
+				kbd_error(EXIT_FAILURE, 0, _("Error: %s: Insufficient number of colors/lines: %u"),
+				          filename, l);
+
+			kbd_error(EXIT_FAILURE, 0, _("Error: %s: Invalid value in line %u."),
+			          filename, l + 1);
+		}
+
+		cmap[l * 3]     = (unsigned char)r;
+		cmap[l * 3 + 1] = (unsigned char)g;
+		cmap[l * 3 + 2] = (unsigned char)b;
+	}
+}
+
+static void
+parse_file(FILE *fd, const char *filename)
+{
+	int c = fgetc(fd);
+
+	if (c == EOF)
+		kbd_error(EXIT_FAILURE, 0, _("Error: %s: File ended unexpectedly."),
+		          filename);
+	ungetc(c, fd);
+
+	if (c == '#')
+		parse_hex_file(fd, filename);
+	else
+		parse_dec_file(fd, filename);
+}
+
 int main(int argc, char **argv)
 {
 	int c, fd;
@@ -119,7 +144,6 @@ int main(int argc, char **argv)
 	FILE *f;
 	const char *console = NULL;
 
-	set_progname(argv[0]);
 	setuplocale();
 
 	const char *short_opts = "C:hV";

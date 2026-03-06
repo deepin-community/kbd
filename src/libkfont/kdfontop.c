@@ -14,18 +14,41 @@
 #include <sys/ioctl.h>
 #include <linux/kd.h>
 
-#include "libcommon.h"
 #include "kfontP.h"
 
 #ifdef COMPAT_HEADERS
 #include "compat/linux-kd.h"
 #endif
 
+static int
+is_kd_text(struct kfont_context *ctx, int fd)
+{
+	unsigned int kd_mode;
+
+	if (ioctl(fd, KDGETMODE, &kd_mode)) {
+		KFONT_ERR(ctx, "ioctl(KDGETMODE): %m");
+		return 0;
+	}
+
+	if (kd_mode == KD_TEXT)
+		return 1;
+
+	KFONT_ERR(ctx, _("Console is not in text mode"));
+	return 0;
+}
+
 int
 kfont_restore_font(struct kfont_context *ctx, int fd)
 {
-	if (ioctl(fd, PIO_FONTRESET, 0)) {
-		KFONT_ERR(ctx, "ioctl(PIO_FONTRESET): %m");
+	struct console_font_op cfo;
+
+	if (!is_kd_text(ctx, fd))
+		return -1;
+
+	cfo.op = KD_FONT_OP_SET_DEFAULT;
+
+	if (ioctl(fd, KDFONTOP, &cfo)) {
+		KFONT_ERR(ctx, "ioctl(KD_FONT_OP_SET_DEFAULT): %m");
 		return -1;
 	}
 	return 0;
@@ -51,24 +74,65 @@ get_font_kdfontop(struct kfont_context *ctx, int consolefd,
 		unsigned char *buf,
 		unsigned int *count,
 		unsigned int *width,
-		unsigned int *height)
+		unsigned int *height,
+		unsigned int *vpitch)
 {
 	struct console_font_op cfo;
 
+	if (!is_kd_text(ctx, consolefd))
+		return -1;
+
 	cfo.op = KD_FONT_OP_GET;
 	cfo.flags = 0;
-	cfo.width = cfo.height = 32;
-	cfo.charcount = *count;
-	cfo.data = buf;
+	cfo.width = 32;
+	cfo.height = 32;
+	cfo.charcount = (sizeof(unsigned char) * MAXFONTSIZE) / (64 * 128 / 8); /* max size 64x128, 8 bits/byte */;
+	cfo.data = NULL;
 
-	errno = 0;
-
-	if (ioctl(consolefd, KDFONTOP, &cfo)) {
-		if (errno != ENOSYS && errno != EINVAL) {
+	/*
+	 * Check font height and width. We can't do this in one request because
+	 * if KD_FONT_OP_GET_TALL is used then vpitch will be less than 32 for
+	 * 8x16 fonts which will break saving the font to a file. After that,
+	 * such a saved font cannot be distinguished from the old fonts by the
+	 * header.
+	 *
+	 * When we learn how to take into account vpitch in psf format, then
+	 * this code can be redone.
+	 */
+	while (1) {
+		errno = 0;
+		if (ioctl(consolefd, KDFONTOP, &cfo)) {
+#ifdef KD_FONT_OP_GET_TALL
+			if (errno == ENOSPC && cfo.op != KD_FONT_OP_GET_TALL) {
+				/*
+				 * It looks like the font is larger than the
+				 * regular font and we need to check for tall
+				 * font.
+				 */
+				cfo.op = KD_FONT_OP_GET_TALL;
+				cfo.width = 64;
+				cfo.height = 128;
+				continue;
+			}
+#endif
 			KFONT_ERR(ctx, "ioctl(KDFONTOP): %m");
 			return -1;
 		}
-		return 1;
+		break;
+	}
+
+	if (buf) {
+		/* actually get font height and width */
+		cfo.data = buf;
+		cfo.charcount = *count;
+
+		errno = 0;
+		if (ioctl(consolefd, KDFONTOP, &cfo)) {
+			if (errno != ENOSYS && errno != EINVAL) {
+				KFONT_ERR(ctx, "ioctl(KDFONTOP): %m");
+			}
+			return -1;
+		}
 	}
 
 	*count = cfo.charcount;
@@ -76,74 +140,14 @@ get_font_kdfontop(struct kfont_context *ctx, int consolefd,
 		*height = cfo.height;
 	if (width)
 		*width = cfo.width;
-	return 0;
-}
-
-static int
-get_font_giofontx(struct kfont_context *ctx, int consolefd,
-		unsigned char *buf,
-		unsigned int *count,
-		unsigned int *width,
-		unsigned int *height)
-{
-	struct consolefontdesc cfd;
-
-	if (*count > USHRT_MAX) {
-		KFONT_ERR(ctx, _("GIO_FONTX: the number of characters in the font cannot be more than %d"), USHRT_MAX);
-		return -1;
+	if (vpitch) {
+#ifdef KD_FONT_OP_GET_TALL
+		if (cfo.op == KD_FONT_OP_GET_TALL)
+			*vpitch = cfo.height;
+		else
+#endif
+			*vpitch = 32;
 	}
-
-	cfd.charcount  = (unsigned short) *count;
-	cfd.charheight = 0;
-	cfd.chardata   = (char *)buf;
-
-	errno = 0;
-
-	if (ioctl(consolefd, GIO_FONTX, &cfd)) {
-		if (errno != ENOSYS && errno != EINVAL) {
-			KFONT_ERR(ctx, "ioctl(GIO_FONTX): %m");
-			return -1;
-		}
-		return 1;
-	}
-
-	*count = cfd.charcount;
-	if (height)
-		*height = cfd.charheight;
-	if (width)
-		*width = 8; /* This method do not support width != 8 */
-	return 0;
-}
-
-static int
-get_font_giofont(struct kfont_context *ctx, int consolefd,
-		unsigned char *buf,
-		unsigned int *count,
-		unsigned int *width,
-		unsigned int *height)
-{
-	if (*count != 256) {
-		KFONT_ERR(ctx, _("getfont called with count<256"));
-		return -1;
-	}
-
-	if (!buf) {
-		KFONT_ERR(ctx, _("getfont using GIO_FONT needs buf"));
-		return -1;
-	}
-
-	errno = 0;
-
-	if (ioctl(consolefd, GIO_FONT, buf)) {
-		KFONT_ERR(ctx, "ioctl(GIO_FONT): %m");
-		return -1;
-	}
-
-	*count = 256;
-	if (height)
-		*height = 0; /* undefined, at most 32 */
-	if (width)
-		*width = 8; /* This method do not support width != 8 */
 	return 0;
 }
 
@@ -156,29 +160,17 @@ int
 kfont_get_font(struct kfont_context *ctx, int fd, unsigned char *buf,
 		unsigned int *count,
 		unsigned int *width,
-		unsigned int *height)
+		unsigned int *height,
+		unsigned int *vpitch)
 {
-	int ret;
-
-	/* First attempt: KDFONTOP */
-	ret = get_font_kdfontop(ctx, fd, buf, count, width, height);
-	if (ret <= 0)
-		return ret;
-
-	/* Second attempt: GIO_FONTX */
-	ret = get_font_giofontx(ctx, fd, buf, count, width, height);
-	if (ret <= 0)
-		return ret;
-
-	/* Third attempt: GIO_FONT */
-	return get_font_giofont(ctx, fd, buf, count, width, height);
+	return get_font_kdfontop(ctx, fd, buf, count, width, height, vpitch);
 }
 
 int unsigned
 kfont_get_fontsize(struct kfont_context *ctx, int fd)
 {
 	unsigned int count = 0;
-	if (!kfont_get_font(ctx, fd, NULL, &count, NULL, NULL))
+	if (!kfont_get_font(ctx, fd, NULL, &count, NULL, NULL, NULL))
 		return count;
 	return 256;
 }
@@ -187,11 +179,24 @@ static int
 put_font_kdfontop(struct kfont_context *ctx, int consolefd, unsigned char *buf,
 		unsigned int count,
 		unsigned int width,
-		unsigned int height)
+		unsigned int height,
+		unsigned int vpitch)
 {
 	struct console_font_op cfo;
 
-	cfo.op        = KD_FONT_OP_SET;
+	if (!is_kd_text(ctx, consolefd))
+		return -1;
+
+	if (vpitch == 32 && width <= 32)
+		cfo.op        = KD_FONT_OP_SET;
+	else {
+#ifdef KD_FONT_OP_SET_TALL
+		cfo.op        = KD_FONT_OP_SET_TALL;
+#else
+		KFONT_ERR(ctx, _("tall font not supported"));
+		return -1;
+#endif
+	}
 	cfo.flags     = 0;
 	cfo.width     = width;
 	cfo.height    = height;
@@ -203,8 +208,10 @@ put_font_kdfontop(struct kfont_context *ctx, int consolefd, unsigned char *buf,
 	if (!ioctl(consolefd, KDFONTOP, &cfo))
 		return 0;
 
-	if (errno == ENOSYS)
-		return 1;
+	if (errno == ENOSYS) {
+		KFONT_ERR(ctx, _("Unable to load such font with such kernel version"));
+		return -1;
+	}
 
 	int ret = -1;
 
@@ -229,103 +236,20 @@ put_font_kdfontop(struct kfont_context *ctx, int consolefd, unsigned char *buf,
 		free(mybuf);
 	}
 
-	KFONT_ERR(ctx, "ioctl(KDFONTOP): %m");
+	if (ret)
+		KFONT_ERR(ctx, "ioctl(KDFONTOP): %m");
 	return ret;
 }
 
-static int
-put_font_piofontx(struct kfont_context *ctx, int consolefd, unsigned char *buf,
-		unsigned int count,
-		unsigned int width,
-		unsigned int height)
-{
-	struct consolefontdesc cfd;
-
-	/*
-	 * technically, this charcount can be up to USHRT_MAX but now there is
-	 * no way to upload a font larger than 512.
-	 */
-	if (count > USHRT_MAX) {
-		KFONT_ERR(ctx, "PIO_FONTX: the number of characters in the font cannot be more than %d", USHRT_MAX);
-		return -1;
-	}
-
-	if (height > 32) {
-		KFONT_ERR(ctx, "PIO_FONTX: the font height cannot be more than %d", 32);
-		return -1;
-	}
-
-	cfd.charcount  = (unsigned short) count;
-	cfd.charheight = (unsigned short) height;
-	cfd.chardata   = (char *)buf;
-
-	if (!ioctl(consolefd, PIO_FONTX, &cfd))
-		return 0;
-
-	if (errno != ENOSYS && errno != EINVAL) {
-		KFONT_ERR(ctx, "ioctl(PIO_FONTX): %d,%dx%d: failed: %m", count, width, height);
-		return -1;
-	}
-
-	return 1;
-}
-
-static int
-put_font_piofont(struct kfont_context *ctx, int consolefd, unsigned char *buf,
-		unsigned int count,
-		unsigned int width,
-		unsigned int height)
-{
-	if (width != 8) {
-		KFONT_ERR(ctx, "PIO_FONT: unsupported font width: %d", width);
-		return -1;
-	}
-
-	if (height != 32) {
-		KFONT_ERR(ctx, "PIO_FONT: unsupported font height: %d", height);
-		return -1;
-	}
-
-	if (count < 256) {
-		KFONT_ERR(ctx, "PIO_FONT: The font is %d characters long (256 characters expected)", count);
-		return -1;
-	}
-
-	if (count > 256) {
-		KFONT_WARN(ctx, "PIO_FONT: The font is %d characters long but only 256 will be loaded", count);
-	}
-
-	/* This will load precisely 256 chars, independent of count */
-	if (!ioctl(consolefd, PIO_FONT, buf))
-		return 0;
-
-	KFONT_ERR(ctx, "ioctl(PIO_FONT): %m");
-	return -1;
-}
-
-
 int
 kfont_put_font(struct kfont_context *ctx, int fd, unsigned char *buf, unsigned int count,
-        unsigned int width, unsigned int height)
+        unsigned int width, unsigned int height, unsigned int vpitch)
 {
-	int ret;
-
 	if (!width)
 		width = 8;
 
 	if (!height)
 		height = font_charheight(buf, count, width);
 
-	/* First attempt: KDFONTOP */
-	ret = put_font_kdfontop(ctx, fd, buf, count, width, height);
-	if (ret <= 0)
-		return ret;
-
-	/* Second attempt: PIO_FONTX */
-	ret = put_font_piofontx(ctx, fd, buf, count, width, height);
-	if (ret <= 0)
-		return ret;
-
-	/* Third attempt: PIO_FONT */
-	return put_font_piofont(ctx, fd, buf, count, width, height);
+	return put_font_kdfontop(ctx, fd, buf, count, width, height, vpitch);
 }

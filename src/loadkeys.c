@@ -20,13 +20,11 @@
 #include <sysexits.h>
 #include <sys/ioctl.h>
 
+#include <keymap.h>
+
 #include "libcommon.h"
 
-#include "paths.h"
-#include "keymap.h"
-
 static const char *const dirpath1[] = {
-	"",
 	DATADIR "/" KEYMAPDIR "/**",
 	KERNDIR "/",
 	NULL
@@ -38,36 +36,25 @@ static const char *const suffixes[] = {
 	NULL
 };
 
-static void __attribute__((noreturn))
+static void KBD_ATTR_NORETURN
 usage(int rc, const struct kbd_help *options)
 {
-	const struct kbd_help *h;
+	fprintf(stderr, _("Usage: %s [option...] [mapfile...]\n"),
+			program_invocation_short_name);
 
-	fprintf(stderr, _("Usage: %s [option...] [mapfile...]\n"), get_progname());
-
-	if (options) {
-		int max = 0;
-
-		fprintf(stderr, "\n");
-		fprintf(stderr, _("Options:"));
-		fprintf(stderr, "\n");
-
-		for (h = options; h && h->opts; h++) {
-			int len = (int) strlen(h->opts);
-			if (max < len)
-				max = len;
-		}
-		max += 2;
-
-		for (h = options; h && h->opts; h++)
-			fprintf(stderr, "  %-*s %s\n", max, h->opts, h->desc);
-	}
+	print_options(options);
 
 	fprintf(stderr, "\n");
 	fprintf(stderr, _("Default keymap: %s\n"), DEFMAP);
-	fprintf(stderr, "\n");
-	fprintf(stderr, _("Report bugs to authors.\n"));
-	fprintf(stderr, "\n");
+
+	fprintf(stderr, _("Available shapes:\n"
+	                  "  2  - default output;\n"
+	                  "  4  - one line for each keycode;\n"
+	                  "  8  - one line for each (modifier,keycode) pair;\n"
+	                  "  16 - one line for each keycode until 1st hole.\n"
+	                 ));
+
+	print_report_bugs();
 
 	exit(rc);
 }
@@ -75,6 +62,7 @@ usage(int rc, const struct kbd_help *options)
 int main(int argc, char *argv[])
 {
 	int options = 0;
+	lk_table_shape table_shape = LK_SHAPE_DEFAULT;
 
 	const char *const *dirpath;
 	const char *dirpath2[] = { NULL, NULL };
@@ -91,10 +79,9 @@ int main(int argc, char *argv[])
 	struct kbdfile_ctx *fctx;
 	struct kbdfile *fp = NULL;
 
-	set_progname(argv[0]);
 	setuplocale();
 
-	const char *const short_opts = "abcC:dhmpsuqvV";
+	const char *const short_opts = "abcC:dhmpst::uqvV";
 	const struct option long_opts[] = {
 		{ "console", required_argument, NULL, 'C' },
 		{ "ascii", no_argument, NULL, 'a' },
@@ -105,6 +92,7 @@ int main(int argc, char *argv[])
 		{ "mktable", no_argument, NULL, 'm' },
 		{ "parse", no_argument, NULL, 'p' },
 		{ "clearstrings", no_argument, NULL, 's' },
+		{ "tkeymap", optional_argument, NULL, 't' },
 		{ "unicode", no_argument, NULL, 'u' },
 		{ "quiet", no_argument, NULL, 'q' },
 		{ "verbose", no_argument, NULL, 'v' },
@@ -112,19 +100,20 @@ int main(int argc, char *argv[])
 		{ NULL, 0, NULL, 0 }
 	};
 	const struct kbd_help opthelp[] = {
-		{ "-C, --console=DEV",  _("the console device to be used.") },
-		{ "-a, --ascii",        _("force conversion to ASCII.") },
-		{ "-b, --bkeymap",      _("output a binary keymap to stdout.") },
-		{ "-c, --clearcompose", _("clear kernel compose table.") },
-		{ "-d, --default",      _("load default.") },
-		{ "-m, --mktable",      _("output a 'defkeymap.c' to stdout.") },
-		{ "-p, --parse",        _("search and parse keymap without action.") },
-		{ "-s, --clearstrings", _("clear kernel string table.") },
-		{ "-u, --unicode",      _("force conversion to Unicode.") },
-		{ "-q, --quiet",        _("suppress all normal output.") },
-		{ "-v, --verbose",      _("be more verbose.") },
-		{ "-V, --version",      _("print version number.")     },
-		{ "-h, --help",         _("print this usage message.") },
+		{ "-C, --console=DEV",     _("the console device to be used.") },
+		{ "-a, --ascii",           _("force conversion to ASCII.") },
+		{ "-b, --bkeymap",         _("output a binary keymap to stdout.") },
+		{ "-c, --clearcompose",    _("clear kernel compose table.") },
+		{ "-d, --default",         _("load default.") },
+		{ "-m, --mktable",         _("output a 'defkeymap.c' to stdout.") },
+		{ "-p, --parse",           _("search and parse keymap without action.") },
+		{ "-s, --clearstrings",    _("clear kernel string table.") },
+		{ "-u, --unicode",         _("force conversion to Unicode.") },
+		{ "-q, --quiet",           _("suppress all normal output.") },
+		{ "-t, --tkeymap[=SHAPE]", _("output a text keymap to stdout.") },
+		{ "-v, --verbose",         _("be more verbose.") },
+		{ "-V, --version",         _("print version number.")     },
+		{ "-h, --help",            _("print this usage message.") },
 		{ NULL, NULL }
 	};
 
@@ -134,7 +123,8 @@ int main(int argc, char *argv[])
 		OPT_D = (1 << 3),
 		OPT_M = (1 << 4),
 		OPT_U = (1 << 5),
-		OPT_P = (1 << 6)
+		OPT_P = (1 << 6),
+		OPT_T = (1 << 7)
 	};
 
 	ctx = lk_init();
@@ -179,6 +169,12 @@ int main(int argc, char *argv[])
 			case 'q':
 				lk_set_log_priority(ctx, LOG_ERR);
 				break;
+			case 't':
+				options |= OPT_T;
+				if (optarg) {
+					table_shape = atoi(optarg);
+				}
+				break;
 			case 'v':
 				lk_set_log_priority(ctx, LOG_INFO);
 				break;
@@ -198,7 +194,7 @@ int main(int argc, char *argv[])
 		kbd_error(EXIT_FAILURE, 0, _("Options %s and %s are mutually exclusive."),
 				"--unicode", "--ascii");
 
-	if (!(options & OPT_M) && !(options & OPT_B)) {
+	if (!(options & OPT_M) && !(options & OPT_B) && !(options & OPT_T)) {
 		/* get console */
 		if ((fd = getfd(console)) < 0)
 			kbd_error(EXIT_FAILURE, 0, _("Couldn't get a file descriptor referring to the console."));
@@ -290,6 +286,14 @@ int main(int argc, char *argv[])
 			rc = lk_dump_bkeymap(ctx, stdout);
 		} else if (options & OPT_M) {
 			rc = lk_dump_ctable(ctx, stdout);
+		} else if (options & OPT_T) {
+			rc = lk_dump_keymap2(ctx, stdout, table_shape, 0);
+			if (rc < 0)
+				goto fail;
+#ifdef KDGKBDIACR
+			lk_dump_diacs(ctx, stdout);
+#endif
+			rc = 0;
 		} else {
 			rc = lk_load_keymap(ctx, fd, kbd_mode);
 		}

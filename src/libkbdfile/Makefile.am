@@ -1,30 +1,48 @@
-AM_CPPFLAGS = \
-	$(CODE_COVERAGE_CPPFLAGS) \
-	-I$(srcdir) -I$(builddir) -I$(srcdir)/.. -I$(builddir)/.. \
-	-I$(srcdir)/../libcommon -I$(builddir)/../libcommon \
-	-DDATADIR=\"$(datadir)\" -DLOCALEDIR=\"$(localedir)\" \
-	-U_GNU_SOURCE \
-	-funit-at-a-time
+include $(top_srcdir)/Makefile.common
 
-AM_CFLAGS = $(CODE_COVERAGE_CFLAGS)
-LDADD = \
-	$(top_builddir)/src/libcommon/libcommon.a \
-	$(CODE_COVERAGE_LIBS)
+AM_CPPFLAGS += -I$(srcdir)
 
 headers = \
-	kbdfile.h
+	../include/kbd/compiler_attributes.h \
+	../include/kbdfile.h \
+	../include/kbd/kbdfile.h
 
 libkbdfile_la_SOURCES = \
 	$(headers) \
 	contextP.h \
+	elf-note.h \
+	elf-note.c \
 	init.c \
 	kbdfile.c
+
+libkbdfile_la_LIBADD =
+libkbdfile_la_CFLAGS =
+
+if USE_ZLIB
+libkbdfile_la_SOURCES += kbdfile-zlib.c
+libkbdfile_la_CFLAGS += $(ZLIB_CFLAGS)
+endif
+
+if USE_BZIP2
+libkbdfile_la_SOURCES += kbdfile-bzip2.c
+libkbdfile_la_CFLAGS += $(BZIP2_CFLAGS)
+endif
+
+if USE_LZMA
+libkbdfile_la_SOURCES += kbdfile-lzma.c
+libkbdfile_la_CFLAGS += $(LZMA_CFLAGS)
+endif
+
+if USE_ZSTD
+libkbdfile_la_SOURCES += kbdfile-zstd.c
+libkbdfile_la_CFLAGS += $(ZSTD_CFLAGS)
+endif
 
 KBDFILE_CURRENT  = 1
 KBDFILE_REVISION = 0
 KBDFILE_AGE      = 0
 
-if BUILD_LIBKEYMAP
+if BUILD_LIBKBDFILE
 lib_LTLIBRARIES = libkbdfile.la
 nobase_include_HEADERS = $(headers)
 libkbdfile_la_LDFLAGS = -export-symbols-regex ^kbdfile_.* -version-info $(KBDFILE_CURRENT):$(KBDFILE_REVISION):$(KBDFILE_AGE)

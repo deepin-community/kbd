@@ -6,10 +6,8 @@
 
 #include "libcommon.h"
 
-int main(int __attribute__((unused)) argc, char **argv)
+int main(int argc KBD_ATTR_UNUSED, char **argv)
 {
-	set_progname(argv[0]);
-
 	lk_table_shape table;
 	char numeric;
 	struct lk_ctx *ctx;
@@ -49,6 +47,7 @@ int main(int __attribute__((unused)) argc, char **argv)
 	kbdfile_set_file(fp, fopen(argv[1], "r"));
 
 	lk_parse_keymap(ctx, fp);
+	lk_add_constants(ctx);
 	lk_dump_keymap(ctx, stdout, table, numeric);
 	lk_dump_diacs(ctx, stdout);
 

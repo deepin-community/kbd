@@ -13,7 +13,6 @@
 
 #include "keymap.h"
 
-#include "libcommon.h"
 #include "contextP.h"
 
 int lk_func_exists(struct lk_ctx *ctx, int index)
@@ -31,8 +30,7 @@ int lk_get_func(struct lk_ctx *ctx, struct kbsentry *kbs)
 		return -1;
 	}
 
-	strncpy((char *)kbs->kb_string, s, sizeof(kbs->kb_string));
-	kbs->kb_string[sizeof(kbs->kb_string) - 1] = 0;
+	strlcpy((char *)kbs->kb_string, s, sizeof(kbs->kb_string));
 
 	return 0;
 }
@@ -58,6 +56,12 @@ int lk_add_func(struct lk_ctx *ctx, struct kbsentry *kbs)
 
 int lk_del_func(struct lk_ctx *ctx, int index)
 {
+	char *s;
+
+	s = lk_array_get_ptr(ctx->func_table, index);
+	if (s)
+		free(s);
+
 	if (lk_array_unset(ctx->func_table, index) < 0) {
 		ERR(ctx, _("Unable to remove item from the list of functions"));
 		return -1;

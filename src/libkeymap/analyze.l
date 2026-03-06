@@ -6,10 +6,8 @@
 
 #include <kbdfile.h>
 
-#include "libcommon.h"
 #include "contextP.h"
 #include "ksyms.h"
-#include "paths.h"
 
 #include "parser.h"
 %}
@@ -103,7 +101,6 @@ static const char *const include_dirpath0[] = {
 	NULL
 };
 static const char *const include_dirpath1[] = {
-	"",
 	"../include/",
 	"../../include/",
 	NULL
@@ -121,52 +118,46 @@ static const char *const include_suffixes[] = {
 	NULL
 };
 
-static int
-find_incl_file_near_fn(struct lk_ctx *ctx, char *s, char *fn, struct kbdfile *fp)
-{
-	const char *include_dirpath2[] = { NULL, NULL, NULL, NULL };
-	char *t, *te, *t1 = NULL, *t2 = NULL;
-	size_t len;
-	int rc = 1;
+#define INCL_1_LEVEL_UPPER "../include/"
+#define INCL_2_LEVEL_UPPER "../../include/"
 
-	if (!fn)
+static int find_incl_file_near_fn(struct lk_ctx *ctx, char *filename, char *path,
+		struct kbdfile *fp)
+{
+	char *slash, *t0, *t1, *t2;
+	size_t len;
+	int rc;
+
+	if (!path || !(slash = strrchr(path, '/')))
 		return 1;
 
-	t = strdup(fn);
-	if (t == NULL)
-		goto nomem;
+	len = (size_t) (slash - path + 1);
 
-	te = strrchr(t, '/');
-	if (te) {
-		te[1] = 0;
-		len = strlen(t);
-		include_dirpath2[0] = t;
-		include_dirpath2[1] = t1 = malloc(len + 12);
-		include_dirpath2[2] = t2 = malloc(len + 15);
+	t0 = strndup(path, len);
+	t1 = malloc(len + sizeof(INCL_1_LEVEL_UPPER));
+	t2 = malloc(len + sizeof(INCL_2_LEVEL_UPPER));
 
-		if (t1 == NULL || t2 == NULL)
-			goto nomem;
+	if (t0 && t1 && t2) {
+		const char *include_dirpath2[] = { t0, t1, t2, NULL };
 
-		strcpy(t1, t);
-		strcat(t1, "../include/");
-		strcpy(t2, t);
-		strcat(t2, "../../include/");
-		rc = kbdfile_find(s, include_dirpath2, include_suffixes, fp);
-		free(t1);
-		free(t2);
+		snprintf(t1, len + sizeof(INCL_1_LEVEL_UPPER), "%s%s", t0, INCL_1_LEVEL_UPPER);
+		snprintf(t2, len + sizeof(INCL_2_LEVEL_UPPER), "%s%s", t0, INCL_2_LEVEL_UPPER);
+
+		rc = kbdfile_find(filename, include_dirpath2, include_suffixes, fp);
+	} else {
+		ERR(ctx, _("out of memory"));
+		rc = -1;
 	}
-	free(t);
-	return rc;
 
-nomem:	ERR(ctx, _("out of memory"));
-	if (t1) free(t1);
-	if (t2) free(t2);
-	if (t)  free(t);
-	return -1;
+	free(t0);
+	free(t1);
+	free(t2);
+
+	return rc;
 }
 
-static int
-find_standard_incl_file(struct lk_ctx *ctx, char *s, struct kbdfile *fp)
+static int find_standard_incl_file(struct lk_ctx *ctx, char *filename,
+		struct kbdfile *fp)
 {
 	char *pathname;
 	int rc = 1;
@@ -178,8 +169,10 @@ find_standard_incl_file(struct lk_ctx *ctx, char *s, struct kbdfile *fp)
 	i--;
 	pathname = kbdfile_get_pathname(ctx->stack[i]);
 
-	if (kbdfile_find(s, include_dirpath1, include_suffixes, fp)) {
-		if ((rc = find_incl_file_near_fn(ctx, s, pathname, fp)) == -1)
+	rc = kbdfile_find(filename, include_dirpath1, include_suffixes, fp);
+	if (rc) {
+		rc = find_incl_file_near_fn(ctx, filename, pathname, fp);
+		if (rc == -1)
 			return rc;
 	}
 
@@ -192,35 +185,35 @@ find_standard_incl_file(struct lk_ctx *ctx, char *s, struct kbdfile *fp)
 		if (n > 0 && n < (ssize_t) sizeof(buf)) {
 			buf[n] = 0;
 			if (buf[0] == '/') {
-				rc = find_incl_file_near_fn(ctx, s, buf, fp);
+				rc = find_incl_file_near_fn(ctx, filename, buf, fp);
 
 			} else if (strlen(pathname) + (size_t) n < sizeof(path)) {
-				strcpy(path, pathname);
-				path[sizeof(path) - 1] = 0;
+				strlcpy(path, pathname, sizeof(path));
 				ptr = strrchr(path, '/');
 				if (ptr)
 					ptr[1] = 0;
-				strcat(path, buf);
-				rc = find_incl_file_near_fn(ctx, s, path, fp);
+				strlcat(path, buf, sizeof(path));
+
+				rc = find_incl_file_near_fn(ctx, filename, path, fp);
 			}
 		}
 	}
 
 	if (rc)
-		rc = kbdfile_find(s, include_dirpath3, include_suffixes, fp);
+		rc = kbdfile_find(filename, include_dirpath3, include_suffixes, fp);
+
 	return rc;
 }
 
-static int
-find_incl_file(struct lk_ctx *ctx, char *s, struct kbdfile *fp)
+static int find_incl_file(struct lk_ctx *ctx, char *filename, struct kbdfile *fp)
 {
 	char *ev;
 
-	if (!s || !*s)
+	if (!filename || !*filename)
 		return 1;
 
-	if (*s == '/')		/* no path required */
-		return (kbdfile_find(s, include_dirpath0, include_suffixes, fp));
+	if (*filename == '/')		/* no path required */
+		return kbdfile_find(filename, include_dirpath0, include_suffixes, fp);
 
 	if ((ev = getenv("LOADKEYS_INCLUDE_PATH")) != NULL) {
 		/* try user-specified path */
@@ -235,9 +228,9 @@ find_incl_file(struct lk_ctx *ctx, char *s, struct kbdfile *fp)
 			}
 			user_dir[0] = ev;
 			if (*ev)
-				rc = kbdfile_find(s, user_dir, include_suffixes, fp);
+				rc = kbdfile_find(filename, user_dir, include_suffixes, fp);
 			else	/* empty string denotes system path */
-				rc = find_standard_incl_file(ctx, s, fp);
+				rc = find_standard_incl_file(ctx, filename, fp);
 
 			if (rc <= 0)
 				return rc;
@@ -247,40 +240,34 @@ find_incl_file(struct lk_ctx *ctx, char *s, struct kbdfile *fp)
 		}
 		return 1;
 	}
-	return find_standard_incl_file(ctx, s, fp);
+	return find_standard_incl_file(ctx, filename, fp);
 }
 
-static int
-open_include(struct lk_ctx *ctx, char *s, yyscan_t scanner)
+static struct kbdfile *open_include(struct lk_ctx *ctx, char *filename)
 {
 	int rc;
 	struct kbdfile *fp;
 
-	INFO(ctx, _("switching to %s"), s);
+	INFO(ctx, _("switching to %s"), filename);
 
 	fp = kbdfile_new(ctx->kbdfile_ctx);
 	if (!fp) {
 		ERR(ctx, _("out of memory"));
-		return -1;
+		return NULL;
 	}
 
-	rc = find_incl_file(ctx, s, fp);
-	if (rc > 0) {
-		ERR(ctx, _("cannot open include file %s"), s);
-		free(s);
-		return -1;
-	} else if (rc == -1) {
-		free(s);
-		return -1;
+	rc = find_incl_file(ctx, filename, fp);
+	if (rc) {
+		if (rc > 0)
+			ERR(ctx, _("cannot open include file %s"), filename);
+		return NULL;
 	}
 
-	free(s);
-
-	return stack_push(ctx, fp, scanner);
+	return fp;
 }
 
-static int
-parse_int(struct lk_ctx *ctx, char *text, char *value, int base, int *res)
+static int parse_positive_long(struct lk_ctx *ctx, char *text, char *value,
+		int base, long long max, long *res)
 {
 	long v;
 
@@ -288,6 +275,10 @@ parse_int(struct lk_ctx *ctx, char *text, char *value, int base, int *res)
 	v = strtol(value, NULL, base);
 
 	if (errno) {
+		if (errno == ERANGE && (v == LONG_MIN || v == LONG_MAX)) {
+			ERR(ctx, "resulting value is out of range: %s", text);
+			return -1;
+		}
 		ERR(ctx, _("unable to parse number: %s"), text);
 		return -1;
 	}
@@ -297,12 +288,53 @@ parse_int(struct lk_ctx *ctx, char *text, char *value, int base, int *res)
 		return -1;
 	}
 
-	if (v > INT_MAX) {
-		ERR(ctx, _("value must be less than %d: %s"), INT_MAX, text);
+	if (v > max) {
+		ERR(ctx, _("value must be less than %lld: %s"), max, text);
 		return -1;
 	}
 
+	*res = v;
+	return 0;
+}
+
+static int parse_int(struct lk_ctx *ctx, char *text, char *value, int base, int *res)
+{
+	long v;
+
+	if (!res || parse_positive_long(ctx, text, value, base, INT_MAX, &v) < 0)
+		return -1;
 	*res = (int) v;
+	return 0;
+}
+
+static int parse_uchar(struct lk_ctx *ctx, char *text, char *value, int base, unsigned char *res)
+{
+	long v;
+
+	if (!res || parse_positive_long(ctx, text, value, base, UCHAR_MAX, &v) < 0)
+		return -1;
+	*res = (unsigned char) v;
+	return 0;
+}
+
+static int strdata_append(struct lk_ctx *ctx, struct string *string,
+		const char *partstr, size_t partlen)
+{
+	char *tail;
+
+	if ((string->str_len + partlen) >= sizeof(string->str_data)) {
+		ERR(ctx, _("string too long"));
+		return -1;
+	}
+
+	tail = string->str_data + string->str_len;
+
+	if (partlen > 1) {
+		strncpy(tail, partstr, partlen);
+	} else {
+		*tail = partstr[0];
+	}
+	string->str_len += partlen;
 
 	return 0;
 }
@@ -319,7 +351,7 @@ Include			include[ \t]*
 Decimal			[1-9][0-9]*
 Octal			0[0-7]*
 Hex			0[xX][0-9a-fA-F]+
-Unicode			U\+([0-9a-fA-F]){4}
+Unicode			U\+([0-9a-fA-F]){4,6}
 Literal			[a-zA-Z][a-zA-Z_0-9]*
 Octa			([0-7]){1,3}
 Charset			charset|Charset|CharSet|CHARSET
@@ -352,14 +384,21 @@ To                      to|To|TO
 				yy_push_state(INCLSTR, yyscanner);
 			}
 <INCLSTR>\"[^\"\n]+\"	{
-				char *s = strndup(yytext+1, strlen(yytext)-2);
-				if (s == NULL) {
+				struct kbdfile *fp;
+
+				char *filename = strndup(yytext + 1, strlen(yytext) - 2);
+				if (filename == NULL) {
 					ERR(yyextra, _("out of memory"));
 					return(ERROR);
 				}
 
-				if (open_include(yyextra, s, yyscanner) == -1)
+				fp = open_include(yyextra, filename);
+				free(filename);
+
+				if (!fp)
 					return(ERROR);
+
+				stack_push(yyextra, fp, yyscanner);
 
 				while (((struct yyguts_t*)yyscanner)->yy_start_stack_ptr) {
 					yy_pop_state(yyscanner);
@@ -404,7 +443,7 @@ To                      to|To|TO
 				if (parse_int(yyextra, yytext, yytext + 1, 16, &(yylval->num)) < 0)
 					return(ERROR);
 
-				if (yylval->num >= 0xf000) {
+				if (yylval->num >= UNICODE_MASK) {
 					ERR(yyextra, _("unicode keysym out of range: %s"),
 						yytext);
 					return(ERROR);
@@ -457,70 +496,41 @@ To                      to|To|TO
 				return(CCHAR);
 			}
 \"			{
-				yylval->str.data[0] = '\0';
-				yylval->str.len = 0;
+				yylval->str.str_data[0] = '\0';
+				yylval->str.str_len = 0;
 
 				yy_push_state(STR, yyscanner);
 			}
 <STR>\\{Octa}		{
-				long int i;
-				if (yylval->str.len == MAX_PARSER_STRING) {
-					ERR(yyextra, _("string too long"));
+				unsigned char ch;
+
+				if (parse_uchar(yyextra, yytext, yytext + 1, 8, &ch) < 0)
 					return(ERROR);
-				}
 
-				i = strtol(yytext + 1, NULL, 8);
-
-				if (i == LONG_MIN || i == LONG_MAX) {
-					char buf[200];
-
-					strerror_r(errno, buf, sizeof(buf));
-
-					ERR(yyextra, "%s", buf);
+				if (strdata_append(yyextra, &yylval->str, (char *) &ch, 1) < 0)
 					return(ERROR);
-				}
-
-				if (i > UCHAR_MAX) {
-					ERR(yyextra, _("octal number too big"));
-					return(ERROR);
-				}
-
-				yylval->str.data[yylval->str.len++] = (unsigned char) i;
 			}
 <STR>\\\"               {
-				if (yylval->str.len == MAX_PARSER_STRING) {
-					ERR(yyextra, _("string too long"));
+				if (strdata_append(yyextra, &yylval->str, "\"", 1) < 0)
 					return(ERROR);
-				}
-				yylval->str.data[yylval->str.len++] = '"';
 			}
 <STR>\\\\               {
-				if (yylval->str.len == MAX_PARSER_STRING) {
-					ERR(yyextra, _("string too long"));
+				if (strdata_append(yyextra, &yylval->str, "\\", 1) < 0)
 					return(ERROR);
-				}
-				yylval->str.data[yylval->str.len++] = '\\';
 			}
 <STR>\\n		{
-				if (yylval->str.len == MAX_PARSER_STRING) {
-					ERR(yyextra, _("string too long"));
+				if (strdata_append(yyextra, &yylval->str, "\n", 1) < 0)
 					return(ERROR);
-				}
-				yylval->str.data[yylval->str.len++] = '\n';
 			}
 <STR>[^\"\\]*		{
 				size_t len = strlen(yytext);
 
-				if (yylval->str.len + len >= MAX_PARSER_STRING) {
-					ERR(yyextra, _("string too long"));
+				if (strdata_append(yyextra, &yylval->str, yytext, len) < 0)
 					return(ERROR);
-				}
-
-				strcpy((char *) yylval->str.data + yylval->str.len, yytext);
-				yylval->str.len += len;
 			}
 <STR>\"			{
-				yylval->str.data[yylval->str.len] = '\0';
+				strdata_append(yyextra, &yylval->str, "\0", 0);
+
 				while (((struct yyguts_t*)yyscanner)->yy_start_stack_ptr) {
 					yy_pop_state(yyscanner);
 				}
