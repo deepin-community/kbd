@@ -1,3 +1,99 @@
+kbd (2.9.0-1) unstable; urgency=medium
+
+  * Team upload.
+
+  [ Andreas Henriksson ]
+  * New upstream release.
+  * Drop debian/patches/ppc-keycode0-test.patch, fixed upstream.
+  * Drop debian/patches/Support-KT_DEAD2-diacritics.patch, fixed upstream.
+
+  [ Michael Biebl ]
+  * kbd-udeb: Move binaries to canonical location in /usr. (Closes: #1122352)
+
+ -- Andreas Henriksson <andreas@fatal.se>  Sun, 14 Dec 2025 10:38:41 +0100
+
+kbd (2.7.1-2) unstable; urgency=medium
+
+  * Team upload.
+  * Add debian/patches/ppc-keycode0-test.patch
+
+ -- Andreas Henriksson <andreas@fatal.se>  Fri, 20 Dec 2024 20:11:27 +0100
+
+kbd (2.7.1-1) unstable; urgency=medium
+
+  * Team upload.
+  * New upstream release.
+  * Upload to unstable.
+
+ -- Andreas Henriksson <andreas@fatal.se>  Fri, 20 Dec 2024 11:40:06 +0100
+
+kbd (2.7~rc1-1) experimental; urgency=medium
+
+  * Team upload.
+  * debian/watch: Mangle rc versions to ~rc
+  * debian/gbp: Rename branches to /latest according to DEP14
+  * New upstream release candidate.
+  * Upload to experimental.
+  * Update Misc...patch to apply
+  * Revert "Cherry-pick patches from upstream fixing gcc14 FTBFS"
+  * debian/kbd.docs: Drop outdated docs removed upstream
+  * debian/copyright: Update renamed files
+
+ -- Andreas Henriksson <andreas@fatal.se>  Mon, 18 Nov 2024 20:08:52 +0100
+
+kbd (2.6.4-3) unstable; urgency=medium
+
+  * Team upload.
+  * Cherry-pick patches from upstream fixing gcc14 FTBFS (Closes: #1075109)
+  * Build-dep on pkgconf instead of pkg-config
+
+ -- Andreas Henriksson <andreas@fatal.se>  Tue, 24 Sep 2024 03:12:26 +0200
+
+kbd (2.6.4-2) unstable; urgency=medium
+
+  * Team upload (to unstable).
+
+  [ cacin ]
+  * Use https in homepage url (Closes: #1060324)
+
+ -- Andreas Henriksson <andreas@fatal.se>  Fri, 12 Jan 2024 18:45:12 +0100
+
+kbd (2.6.4-1) experimental; urgency=medium
+
+  * Team upload.
+
+  [ Andreas Henriksson ]
+  * New upstream release.
+  * Fix failure to build twice in a row (Closes: #1047644)
+
+  [ cacin ]
+  * move files to /usr for DEP17 (Closes: #1060074)
+
+ -- Andreas Henriksson <andreas@fatal.se>  Tue, 09 Jan 2024 11:51:40 +0100
+
+kbd (2.5.1-1) unstable; urgency=medium
+
+  * Team upload.
+
+  [ Andreas Henriksson ]
+  * New upstream release.
+  * Unfuzz debian/patches/Miscellaneous-manpage-corrections-and-additions.patch
+  * Unfuzz debian/patches/Check-for-X-in-kbd_mode.patch
+  * Revert "Cherry-pick no install libtswrap internal library"
+  * Let `gbp pq <import|export>` refresh patches
+  * Bump debhelper from old 10 to 13.
+  * Set debhelper-compat version in Build-Depends.
+  * Set upstream metadata fields: Bug-Database, Bug-Submit.
+  * debian/copyright: Update paths of moved files
+
+  [ nick black ]
+  * refer to deallocvt(8), not disalloc(8) (Closes: #989525)
+
+  [ Osamu Aoki ]
+  * update d/control for console-setup (Closes: #998086)
+
+ -- Andreas Henriksson <andreas@fatal.se>  Sat, 08 Oct 2022 21:24:51 +0200
+
 kbd (2.3.0-3) unstable; urgency=medium
 
   * Team upload.

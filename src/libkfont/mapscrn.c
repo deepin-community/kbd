@@ -20,8 +20,6 @@
 
 #include <kbdfile.h>
 
-#include "paths.h"
-#include "libcommon.h"
 #include "kfontP.h"
 #include "utf8.h"
 
@@ -46,7 +44,7 @@ parsemap(FILE *fp, unsigned char *buf, unsigned short *ubuf, int *u, unsigned in
 	char buffer[256];
 	unsigned int ln = 0;
 	int in, on, ret = 0;
-	char *p, *q;
+	char *p, *q, *save;
 
 	while (fgets(buffer, sizeof(buffer) - 1, fp)) {
 		ln++;
@@ -54,9 +52,9 @@ parsemap(FILE *fp, unsigned char *buf, unsigned short *ubuf, int *u, unsigned in
 		if (!*u && strstr(buffer, "U+"))
 			*u = 1;
 
-		p = strtok(buffer, " \t\n");
+		p = strtok_r(buffer, " \t\n", &save);
 		if (p && *p != '#') {
-			q = strtok(NULL, " \t\n#");
+			q = strtok_r(NULL, " \t\n#", &save);
 			if (q) {
 				in = ctoi(p);
 				on = ctoi(q);
@@ -105,10 +103,9 @@ readnewmapfromfile(struct kfont_context *ctx, const char *mfil,
 	}
 
 	if (stbuf.st_size == E_TABSZ) {
-		if (ctx->verbose)
-			KFONT_INFO(ctx,
-				_("Loading binary direct-to-font screen map from file %s"),
-				kbdfile_get_pathname(fp));
+		KFONT_INFO(ctx,
+			_("Loading binary direct-to-font screen map from file %s"),
+			kbdfile_get_pathname(fp));
 
 		if (fread(buf, E_TABSZ, 1, kbdfile_get_file(fp)) != 1) {
 			KFONT_ERR(ctx, _("Error reading map from file `%s'"),
@@ -117,10 +114,9 @@ readnewmapfromfile(struct kfont_context *ctx, const char *mfil,
 			goto end;
 		}
 	} else if (stbuf.st_size == 2 * E_TABSZ) {
-		if (ctx->verbose)
-			KFONT_INFO(ctx,
-				_("Loading binary unicode screen map from file %s"),
-				kbdfile_get_pathname(fp));
+		KFONT_INFO(ctx,
+			_("Loading binary unicode screen map from file %s"),
+			kbdfile_get_pathname(fp));
 
 		if (fread(ubuf, 2 * E_TABSZ, 1, kbdfile_get_file(fp)) != 1) {
 			KFONT_ERR(ctx,
@@ -131,9 +127,8 @@ readnewmapfromfile(struct kfont_context *ctx, const char *mfil,
 		}
 		ret = 1;
 	} else {
-		if (ctx->verbose)
-			KFONT_INFO(ctx, _("Loading symbolic screen map from file %s"),
-				kbdfile_get_pathname(fp));
+		KFONT_INFO(ctx, _("Loading symbolic screen map from file %s"),
+			kbdfile_get_pathname(fp));
 
 		if (parsemap(kbdfile_get_file(fp), buf, ubuf, &ret, &lineno)) {
 			KFONT_ERR(ctx,
@@ -155,14 +150,15 @@ kfont_load_consolemap(struct kfont_context *ctx, int fd, const char *mfil)
 {
 	unsigned short ubuf[E_TABSZ];
 	unsigned char buf[E_TABSZ];
-	unsigned int i;
+	unsigned char i = 0;
 	int u = 0;
 
 	/* default: trivial straight-to-font */
-	for (i = 0; i < E_TABSZ; i++) {
-		buf[i]  = i;
+	do {
+		buf[i] = i;
 		ubuf[i] = (0xf000 + i);
-	}
+	} while (++i != 0);
+
 
 	if (mfil)
 		u = readnewmapfromfile(ctx, mfil, buf, ubuf);
@@ -267,7 +263,7 @@ kfont_save_consolemap(struct kfont_context *ctx, int fd, const char *omfil)
 		ret = -1;
 	}
 
-	if (!ret && ctx->verbose)
+	if (!ret)
 		KFONT_INFO(ctx, _("Saved screen map in `%s'"), omfil);
 
 	fclose(fp);

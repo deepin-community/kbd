@@ -13,9 +13,7 @@ EXTRA_BINARIES = screendump setlogcons setvesablank
 CONTRIB_BINARIES = codepage splitfont vcstime
 
 # we don’t want these in /usr/bin
-MOVE_TO_BIN = kbd_mode setfont fgconsole openvt chvt dumpkeys unicode_start loadkeys
-MOVE_TO_SBIN = kbdrate
-MOVE_TO_USR_SBIN = vcstime setvesablank
+MOVE_TO_USR_SBIN = vcstime setvesablank kbdrate
 
 include /usr/share/dpkg/architecture.mk
 
@@ -32,6 +30,9 @@ override_dh_auto_clean:
 	cd src/ && rm -f $(EXTRA_BINARIES) *-udeb
 	cd contrib/ && rm -f $(CONTRIB_BINARIES)
 	rm -f po/gr.po			# replaced by el.po
+	# cleanup modified or leftover files from previous build
+	! test -p tests/testsuite.dir/at-job-fifo || rm -f tests/testsuite.dir/at-job-fifo
+	rm -f po/*.gmo po/stamp-po
 	# force rebuilding of generated code
 	rm -f src/libkeymap/analyze.h src/libkeymap/analyze.c
 
@@ -70,12 +71,10 @@ override_dh_auto_install:
 	install -m755 $(addprefix contrib/,$(CONTRIB_BINARIES)) $(KBD)/usr/bin/
 	install -m755 data/keymaps/i386/mk_modmap $(KBD)/usr/bin
 # move everything where it belongs
-	mv $(addprefix debian/kbd/usr/bin/,$(MOVE_TO_BIN)) $(KBD)/bin/
-	mv $(addprefix debian/kbd/usr/bin/,$(MOVE_TO_SBIN)) $(KBD)/sbin/
 	mv $(addprefix debian/kbd/usr/bin/,$(MOVE_TO_USR_SBIN)) $(KBD)/usr/sbin/
 # prepare udeb
 ifeq (, $(filter noudeb, $(DEB_BUILD_PROFILES)))
-	for ITEM in $(UDEB_BINARIES); do install -m755 src/$$ITEM-udeb $(KBD_UDEB)/bin/$$ITEM; done
+	for ITEM in $(UDEB_BINARIES); do install -D -m755 src/$$ITEM-udeb $(KBD_UDEB)/usr/bin/$$ITEM; done
 endif
 # drop libtool files
 	find $(KBD) -name '*.la' -delete

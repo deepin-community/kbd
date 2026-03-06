@@ -21,8 +21,6 @@
 
 #include <kbdfile.h>
 
-#include "paths.h"
-#include "libcommon.h"
 #include "kfontP.h"
 
 static unsigned int position_codepage(unsigned int iunit);
@@ -45,8 +43,9 @@ findpartialfont(struct kfont_context *ctx, const char *fnam, struct kbdfile *fp)
 static int erase_mode = 1;
 
 static int
-do_loadfont(struct kfont_context *ctx, int fd, const unsigned char *inbuf,
-		unsigned int width, unsigned int height, unsigned int hwunit,
+try_loadfont(struct kfont_context *ctx, int fd, const unsigned char *inbuf,
+		unsigned int width, unsigned int height, unsigned int vpitch,
+		unsigned int hwunit,
 		unsigned int fontsize, const char *filename)
 {
 	unsigned char *buf = NULL;
@@ -54,13 +53,13 @@ do_loadfont(struct kfont_context *ctx, int fd, const unsigned char *inbuf,
 	int bad_video_erase_char = 0;
 	int ret;
 
-	if (height < 1 || height > 32) {
-		KFONT_ERR(ctx, _("Bad character height %d"), height);
+	if (height < 1 || height > 128) {
+		KFONT_ERR(ctx, _("Bad character height %d (limit is 128)"), height);
 		return -EX_DATAERR;
 	}
 
-	if (width < 1 || width > 32) {
-		KFONT_ERR(ctx, _("Bad character width %d"), width);
+	if (width < 1 || width > 64) {
+		KFONT_ERR(ctx, _("Bad character width %d (limit is 64)"), width);
 		return -EX_DATAERR;
 	}
 
@@ -68,8 +67,8 @@ do_loadfont(struct kfont_context *ctx, int fd, const unsigned char *inbuf,
 		hwunit = height;
 
 	if ((ctx->options & (1 << kfont_double_size)) &&
-	    (height > 16 || width > 16)) {
-		KFONT_ERR(ctx, _("Cannot double %dx%d font (limit is 16x16)"), width, height);
+	    (height > 64 || width > 32)) {
+		KFONT_ERR(ctx, _("Cannot double %dx%d font (limit is 32x64)"), width, height);
 		kfont_unset_option(ctx, kfont_double_size);
 	}
 
@@ -78,7 +77,10 @@ do_loadfont(struct kfont_context *ctx, int fd, const unsigned char *inbuf,
 		unsigned int kbytewidth = (2 * width + 7) / 8;
 		unsigned int charsize   = height * bytewidth;
 
-		kcharsize = 32 * kbytewidth;
+		if (2*height > vpitch)
+			vpitch = 2*height;
+
+		kcharsize = vpitch * kbytewidth;
 		buflen    = kcharsize * ((fontsize < 128) ? 128 : fontsize);
 
 		buf = calloc(1, buflen);
@@ -112,7 +114,7 @@ do_loadfont(struct kfont_context *ctx, int fd, const unsigned char *inbuf,
 		unsigned int bytewidth = (width + 7) / 8;
 		unsigned int charsize  = height * bytewidth;
 
-		kcharsize = 32 * bytewidth;
+		kcharsize = vpitch * bytewidth;
 		buflen    = kcharsize * ((fontsize < 128) ? 128 : fontsize);
 
 		buf = calloc(1, buflen);
@@ -156,22 +158,20 @@ do_loadfont(struct kfont_context *ctx, int fd, const unsigned char *inbuf,
 		}
 	}
 
-	if (ctx->verbose) {
-		if (height == hwunit && filename)
-			KFONT_INFO(ctx, _("Loading %d-char %dx%d font from file %s"),
-			       fontsize, width, height, filename);
-		else if (height == hwunit)
-			KFONT_INFO(ctx, _("Loading %d-char %dx%d font"),
-			       fontsize, width, height);
-		else if (filename)
-			KFONT_INFO(ctx, _("Loading %d-char %dx%d (%d) font from file %s"),
-			       fontsize, width, height, hwunit, filename);
-		else
-			KFONT_INFO(ctx, _("Loading %d-char %dx%d (%d) font"),
-			       fontsize, width, height, hwunit);
-	}
+	if (height == hwunit && filename)
+		KFONT_INFO(ctx, _("Loading %d-char %dx%d font from file %s"),
+		       fontsize, width, height, filename);
+	else if (height == hwunit)
+		KFONT_INFO(ctx, _("Loading %d-char %dx%d font"),
+		       fontsize, width, height);
+	else if (filename)
+		KFONT_INFO(ctx, _("Loading %d-char %dx%d (%d) font from file %s"),
+		       fontsize, width, height, hwunit, filename);
+	else
+		KFONT_INFO(ctx, _("Loading %d-char %dx%d (%d) font"),
+		       fontsize, width, height, hwunit);
 
-	if (kfont_put_font(ctx, fd, buf, fontsize, width, hwunit) < 0) {
+	if (kfont_put_font(ctx, fd, buf, fontsize, width, hwunit, vpitch) < 0) {
 		ret = -EX_OSERR;
 		goto err;
 	}
@@ -180,6 +180,18 @@ do_loadfont(struct kfont_context *ctx, int fd, const unsigned char *inbuf,
 err:
 	free(buf);
 	return ret;
+}
+
+static int
+do_loadfont(struct kfont_context *ctx, int fd, const unsigned char *inbuf,
+		unsigned int width, unsigned int height, unsigned int hwunit,
+		unsigned int fontsize, const char *filename)
+{
+	if (height <= 32 && width <= 32)
+		/* This can work with pre-6.2 kernels and its size and vpitch limitations */
+		return try_loadfont(ctx, fd, inbuf, width, height, 32, hwunit, fontsize, filename);
+	else
+		return try_loadfont(ctx, fd, inbuf, width, height, height, hwunit, fontsize, filename);
 }
 
 static int
@@ -217,8 +229,8 @@ do_loadtable(struct kfont_context *ctx, int fd, struct unicode_list *uclistheads
 		while (ul) {
 			us = ul->seq;
 			if (us && !us->next) {
-				up[ct].unicode = us->uc;
-				up[ct].fontpos = i;
+				up[ct].unicode = (unsigned short) us->uc;
+				up[ct].fontpos = (unsigned short) i;
 				ct++;
 				if (ctx->verbose > 1)
 					printf(" %04x", us->uc);
@@ -238,16 +250,15 @@ do_loadtable(struct kfont_context *ctx, int fd, struct unicode_list *uclistheads
 			printf("\n");
 	}
 
-	if (ct != maxct) {
+	if (ct > USHRT_MAX || ct != maxct) {
 		KFONT_ERR(ctx, _("bug in do_loadtable"));
 		ret = -EX_SOFTWARE;
 		goto err;
 	}
 
-	if (ctx->verbose)
-		KFONT_INFO(ctx, _("Loading Unicode mapping table..."));
+	KFONT_INFO(ctx, _("Loading Unicode mapping table..."));
 
-	ud.entry_ct = ct;
+	ud.entry_ct = (unsigned short) ct;
 	ud.entries  = up;
 
 	if (kfont_put_unicodemap(ctx, fd, NULL, &ud) < 0) {
@@ -268,7 +279,7 @@ kfont_load_fonts(struct kfont_context *ctx,
 {
 	const char *ifil;
 	unsigned char *inbuf, *fontbuf, *bigfontbuf;
-	unsigned int inputlth, fontbuflth, fontsize, height, width, bytewidth;
+	unsigned int inputlth, fontbuflth, fontsize, height, width;
 	unsigned int bigfontbuflth, bigfontsize, bigheight, bigwidth;
 	unsigned char *ptr;
 	struct unicode_list *uclistheads;
@@ -306,9 +317,10 @@ kfont_load_fonts(struct kfont_context *ctx,
 		inbuf = fontbuf = NULL;
 		inputlth = fontbuflth = 0;
 		fontsize = 0;
+		height = 0;
 
 		if (kfont_read_psffont(ctx, kbdfile_get_file(fp), &inbuf,
-			&inputlth, &fontbuf, &fontbuflth, &width, &fontsize,
+			&inputlth, &fontbuf, &fontbuflth, &width, &height, &fontsize,
 			bigfontsize, no_u ? NULL : &uclistheads)) {
 			KFONT_ERR(ctx, _("When loading several fonts, all must be psf fonts - %s isn't"),
 			    kbdfile_get_pathname(fp));
@@ -316,12 +328,14 @@ kfont_load_fonts(struct kfont_context *ctx,
 			goto end;
 		}
 
-		bytewidth = (width + 7) / 8;
-		height    = fontbuflth / (bytewidth * fontsize);
+		if (!height) {
+			unsigned int bytewidth;
+			bytewidth = (width + 7) / 8;
+			height = fontbuflth / (bytewidth * fontsize);
+		}
 
-		if (ctx->verbose)
-			KFONT_INFO(ctx, _("Read %d-char %dx%d font from file %s"),
-			     fontsize, width, height, kbdfile_get_pathname(fp));
+		KFONT_INFO(ctx, _("Read %d-char %dx%d font from file %s"),
+		     fontsize, width, height, kbdfile_get_pathname(fp));
 
 		kbdfile_free(fp); // avoid zombies, jw@suse.de (#88501)
 		fp = NULL;
@@ -379,7 +393,7 @@ kfont_load_font(struct kfont_context *ctx, int fd, const char *ifil,
 	struct kbdfile *fp;
 
 	char defname[20];
-	unsigned int height, width, bytewidth;
+	unsigned int height, width;
 	int def = 0;
 	unsigned char *inbuf, *fontbuf;
 	unsigned int inputlth, fontbuflth, fontsize, offset;
@@ -430,14 +444,19 @@ kfont_load_font(struct kfont_context *ctx, int fd, const char *ifil,
 	inbuf = fontbuf = NULL;
 	inputlth = fontbuflth = fontsize = 0;
 	width = 8;
+	height = 0;
 	uclistheads = NULL;
 
 	if (!kfont_read_psffont(ctx, kbdfile_get_file(fp), &inbuf, &inputlth,
-		&fontbuf, &fontbuflth, &width, &fontsize, 0, no_u ? NULL : &uclistheads)) {
+		&fontbuf, &fontbuflth, &width, &height, &fontsize, 0,
+		no_u ? NULL : &uclistheads)) {
 
 		/* we've got a psf font */
-		bytewidth = (width + 7) / 8;
-		height    = fontbuflth / (bytewidth * fontsize);
+		if (!height) {
+			unsigned int bytewidth;
+			bytewidth = (width + 7) / 8;
+			height    = fontbuflth / (bytewidth * fontsize);
+		}
 
 		ret = do_loadfont(ctx, fd, fontbuf, width, height, hwunit,
 			fontsize, kbdfile_get_pathname(fp));
@@ -589,19 +608,21 @@ save_font(struct kfont_context *ctx, int consolefd, const char *filename,
 /* this is the max font size the kernel is willing to handle */
 	unsigned char buf[MAXFONTSIZE];
 
-	unsigned int i, ct, width, height, bytewidth, charsize, kcharsize;
+	unsigned int i, ct, width, height, bytewidth, charsize, kcharsize, vpitch;
 	int ret;
 
-	ct = sizeof(buf) / (32 * 32 / 8); /* max size 32x32, 8 bits/byte */
+	ct = sizeof(buf) / (64 * 128 / 8); /* max size 64x128, 8 bits/byte */
 
-	if (kfont_get_font(ctx, consolefd, buf, &ct, &width, &height) < 0)
+	if (kfont_get_font(ctx, consolefd, buf, &ct, &width, &height, &vpitch) < 0)
 		return -EX_OSERR;
 
 	/* save as efficiently as possible */
+	if (!height)
+		height = font_charheight(buf, ct, width);
+
 	bytewidth = (width + 7) / 8;
-	height    = font_charheight(buf, ct, width);
 	charsize  = height * bytewidth;
-	kcharsize = 32 * bytewidth;
+	kcharsize = vpitch * bytewidth;
 
 /* Do we need a psf header? */
 /* Yes if ct==512 - otherwise we cannot distinguish
@@ -632,11 +653,9 @@ save_font(struct kfont_context *ctx, int consolefd, const char *filename,
 				return -EX_IOERR;
 			}
 		}
-		if (ctx->verbose) {
-			KFONT_INFO(ctx,
-			     _("Saved %d-char %dx%d font file on %s"),
-			     ct, width, height, filename);
-		}
+		KFONT_INFO(ctx,
+		     _("Saved %d-char %dx%d font file on %s"),
+		     ct, width, height, filename);
 	}
 
 	if (count)

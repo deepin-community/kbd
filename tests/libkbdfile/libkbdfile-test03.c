@@ -7,25 +7,30 @@
 #include "libcommon.h"
 
 int
-main(int __attribute__((unused)) argc, char **argv)
+main(int argc KBD_ATTR_UNUSED, char **argv KBD_ATTR_UNUSED)
 {
-	set_progname(argv[0]);
 	struct kbdfile *fp = kbdfile_new(NULL);
 	if (!fp)
 		kbd_error(EXIT_FAILURE, 0, "unable to create kbdfile");
 
-	const char *const dirpath[]  = { "", DATADIR "/data/findfile/test_0/keymaps/**", 0 };
-	const char *const suffixes[] = { "", ".kmap", ".map", 0 };
+	const char *const dirpath[]  = { "", TESTDIR "/data/findfile/test_0/keymaps/**", NULL };
+	const char *const suffixes[] = { "", ".kmap", ".map", NULL };
 
-	const char *expect = DATADIR "/data/findfile/test_0/keymaps/i386/qwertz/test2";
+	const char *expect = TESTDIR "/data/findfile/test_0/keymaps/i386/qwertz/test2";
+	const char *const searches[] = { "test2", "qwertz/test2", "i386/qwertz/test2", NULL };
 
-	int rc = kbdfile_find("test2", dirpath, suffixes, fp);
+	for (int i = 0; searches[i]; i++) {
+		int rc;
 
-	if (rc != 0)
-		kbd_error(EXIT_FAILURE, 0, "unable to find file");
+		rc = kbdfile_find(searches[i], dirpath, suffixes, fp);
+		if (rc != 0)
+			kbd_error(EXIT_FAILURE, 0, "unable to find file: %s", searches[i]);
 
-	if (strcmp(expect, kbdfile_get_pathname(fp)) != 0)
-		kbd_error(EXIT_FAILURE, 0, "unexpected file: %s (expected %s)", kbdfile_get_pathname(fp), expect);
+		if (strcmp(expect, kbdfile_get_pathname(fp)) != 0)
+			kbd_error(EXIT_FAILURE, 0, "unexpected file: %s (expected %s)", kbdfile_get_pathname(fp), expect);
+
+		kbdfile_close(fp);
+	}
 
 	kbdfile_free(fp);
 

@@ -13,9 +13,11 @@ This patch originated in console-tools.
  src/unicode_stop  |  6 ++++++
  2 files changed, 19 insertions(+)
 
+diff --git a/src/unicode_start b/src/unicode_start
+index f1f3f0b..b123d90 100755
 --- a/src/unicode_start
 +++ b/src/unicode_start
-@@ -13,6 +13,19 @@
+@@ -13,6 +13,19 @@ esac
  
  # Enables Unicode processing in the current console.
  #
@@ -35,6 +37,8 @@ This patch originated in console-tools.
  # 1. The input side: the keyboard driver.
  
  # Set the keyboard driver in Unicode mode. (Default is ASCII mode.)
+diff --git a/src/unicode_stop b/src/unicode_stop
+index ed57d10..30a494f 100755
 --- a/src/unicode_stop
 +++ b/src/unicode_stop
 @@ -1,5 +1,11 @@
@@ -46,6 +50,6 @@ This patch originated in console-tools.
 +   exit 1
 +fi
 +
- TTY="`/usr/bin/tty`"
+ TTY=$(/usr/bin/tty)
  case "$TTY" in
  	/dev/console|/dev/vc*|/dev/tty[0-9]*)

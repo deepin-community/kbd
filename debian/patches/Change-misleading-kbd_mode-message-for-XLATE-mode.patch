@@ -19,9 +19,11 @@ codesearch.google.com shows only the BiCon project
  src/kbd_mode.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
+diff --git a/src/kbd_mode.c b/src/kbd_mode.c
+index 076c763..ccf0056 100644
 --- a/src/kbd_mode.c
 +++ b/src/kbd_mode.c
-@@ -36,7 +36,7 @@
+@@ -63,7 +63,7 @@ fprint_mode(FILE *stream, int  mode)
  			fprintf(stream, _("The keyboard is in mediumraw (keycode) mode"));
  			break;
  		case K_XLATE:

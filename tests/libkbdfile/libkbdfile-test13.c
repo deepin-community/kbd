@@ -7,22 +7,20 @@
 #include "libcommon.h"
 
 int
-main(int __attribute__((unused)) argc, char **argv)
+main(int argc KBD_ATTR_UNUSED, char **argv KBD_ATTR_UNUSED)
 {
-	set_progname(argv[0]);
-
 	struct kbdfile *fp = kbdfile_new(NULL);
 	if (!fp)
 		kbd_error(EXIT_FAILURE, 0, "unable to create kbdfile");
 
-	const char *const dirpath[]  = { "", DATADIR "/data/findfile/test_1/consolefonts/", 0 };
-	const char *const suffixes[] = { "", ".psfu", ".psf", ".cp", ".fnt", 0 };
+	const char *const dirpath[]  = { "", TESTDIR "/data/findfile/test_1/consolefonts/", NULL };
+	const char *const suffixes[] = { "", ".psfu", ".psf", ".cp", ".fnt", NULL };
 
-	const char *expect = DATADIR "/data/findfile/test_1/consolefonts/simple-1.psf.gz";
+	const char *expect = TESTDIR "/data/findfile/test_1/consolefonts/simple-1.psf.gz";
 
 	int rc = 0;
 
-	rc = kbdfile_find("simple-1.psf.gz", dirpath, suffixes, fp);
+	rc = kbdfile_find("simple-1.psf", dirpath, suffixes, fp);
 
 	if (rc != 0)
 		kbd_error(EXIT_FAILURE, 0, "unable to find file");

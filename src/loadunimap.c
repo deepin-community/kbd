@@ -17,50 +17,30 @@
 #include <sys/ioctl.h>
 #include <linux/kd.h>
 
-#include "libcommon.h"
-#include "kfont.h"
+#include <kfont.h>
 
-static void __attribute__((noreturn))
+#include "libcommon.h"
+
+static void KBD_ATTR_NORETURN
 usage(int rc, const struct kbd_help *options)
 {
-	const struct kbd_help *h;
-	fprintf(stderr, _("Usage: %s [option...]\n"), get_progname());
+	fprintf(stderr, _("Usage: %s [option...]\n"), program_invocation_short_name);
 	fprintf(stderr, "\n");
 	fprintf(stderr, _("This utility reports or sets the keyboard mode.\n"));
 
-	if (options) {
-		int max = 0;
-
-		fprintf(stderr, "\n");
-		fprintf(stderr, _("Options:"));
-		fprintf(stderr, "\n");
-
-		for (h = options; h && h->opts; h++) {
-			int len = (int) strlen(h->opts);
-			if (max < len)
-				max = len;
-		}
-		max += 2;
-
-		for (h = options; h && h->opts; h++)
-			fprintf(stderr, "  %-*s %s\n", max, h->opts, h->desc);
-	}
-
-	fprintf(stderr, "\n");
-	fprintf(stderr, _("Report bugs to authors.\n"));
-	fprintf(stderr, "\n");
+	print_options(options);
+	print_report_bugs();
 
 	exit(rc);
 }
 
 int main(int argc, char *argv[])
 {
-	int fd, c, ret;
+	int fd, c, ret, rc;
 	char *console = NULL;
 	char *outfnam = NULL;
 	const char *infnam  = "def.uni";
 
-	set_progname(argv[0]);
 	setuplocale();
 
 	const char *short_opts = "o:C:hV";
@@ -109,20 +89,28 @@ int main(int argc, char *argv[])
 
 	struct kfont_context *kfont;
 
-	if ((ret = kfont_init(get_progname(), &kfont)) < 0)
+	if ((ret = kfont_init(program_invocation_short_name, &kfont)) < 0)
 		return -ret;
 
+	rc = EX_OK;
+
 	if (outfnam) {
-		if ((ret = kfont_save_unicodemap(kfont, fd, outfnam)) < 0)
-			return -ret;
+		if ((ret = kfont_save_unicodemap(kfont, fd, outfnam)) < 0) {
+			rc = -ret;
+			goto kfont_exit;
+		}
 		if (argc == optind)
-			return EX_OK;
+			goto kfont_exit;
 	}
 
 	if (argc == optind + 1)
 		infnam = argv[optind];
-	if ((ret = kfont_load_unicodemap(kfont, fd, infnam)) < 0)
-		return -ret;
 
-	return EX_OK;
+	if ((ret = kfont_load_unicodemap(kfont, fd, infnam)) < 0)
+		rc = -ret;
+
+kfont_exit:
+	kfont_free(kfont);
+
+	return rc;
 }

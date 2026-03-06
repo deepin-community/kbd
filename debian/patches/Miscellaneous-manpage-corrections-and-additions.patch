@@ -10,40 +10,42 @@ Forwarded: no
  * Document that "openvt -e" has to be a session leader, closes:
    #610373.
 ---
- docs/man/man1/dumpkeys.1.in      |  1 -
- docs/man/man1/kbd_mode.1         |  1 -
- docs/man/man1/loadkeys.1.in      |  1 -
- docs/man/man1/openvt.1           |  9 ++++++++-
- docs/man/man1/psfaddtable.1      |  1 -
- docs/man/man1/psfgettable.1      |  1 -
- docs/man/man1/psfstriptable.1    |  1 -
- docs/man/man1/psfxtable.1        |  1 -
- docs/man/man1/setleds.1          | 13 ++++++-------
- docs/man/man1/setmetamode.1      |  1 -
- docs/man/man1/showkey.1          |  1 -
- docs/man/man1/unicode_start.1    |  1 -
- docs/man/man1/unicode_stop.1     |  1 -
- docs/man/man1misc/splitfont.1    |  2 +-
- docs/man/man5/keymaps.5          |  5 -----
- docs/man/man8/resizecons.8       |  9 +++++++--
- docs/man/man8/setfont.8.in       |  1 -
- docs/man/man8misc/mk_modmap.8    |  4 ++--
- docs/man/man8misc/setvesablank.8 |  1 -
- 19 files changed, 24 insertions(+), 31 deletions(-)
+ docs/man/man1/dumpkeys.1.in      | 1 -
+ docs/man/man1/kbd_mode.1         | 1 -
+ docs/man/man1/loadkeys.1.in      | 1 -
+ docs/man/man1/openvt.1           | 7 +++++++
+ docs/man/man1/psfaddtable.1      | 1 -
+ docs/man/man1/psfgettable.1      | 1 -
+ docs/man/man1/psfstriptable.1    | 1 -
+ docs/man/man1/psfxtable.1        | 1 -
+ docs/man/man1/setleds.1          | 7 +++----
+ docs/man/man1/setmetamode.1      | 1 -
+ docs/man/man1/showkey.1          | 1 -
+ docs/man/man1/unicode_start.1    | 1 -
+ docs/man/man1/unicode_stop.1     | 1 -
+ docs/man/man5/keymaps.5          | 5 -----
+ docs/man/man8/resizecons.8       | 9 +++++++--
+ docs/man/man8/setfont.8.in       | 1 -
+ docs/man/man8misc/setvesablank.8 | 1 -
+ 17 files changed, 17 insertions(+), 24 deletions(-)
 
---- a/docs/man/man1/dumpkeys.1.in
-+++ b/docs/man/man1/dumpkeys.1.in
-@@ -16,7 +16,6 @@
- .B \-v \-\-verbose \-V \-\-version
- ]
+Index: kbd/docs/man/man1/dumpkeys.1.gen
+===================================================================
+--- kbd.orig/docs/man/man1/dumpkeys.1.gen
++++ kbd/docs/man/man1/dumpkeys.1.gen
+@@ -6,7 +6,6 @@ dumpkeys \- dump keyboard translation ta
+ .B dumpkeys
+ [OPTIONS]
  .SH DESCRIPTION
 -.IX "dumpkeys command" "" "\fLdumpkeys\fR command"
  .LP
  .B dumpkeys
  writes, to the standard output, the current contents of the keyboard
---- a/docs/man/man1/kbd_mode.1
-+++ b/docs/man/man1/kbd_mode.1
-@@ -12,7 +12,6 @@
+Index: kbd/docs/man/man1/kbd_mode.1
+===================================================================
+--- kbd.orig/docs/man/man1/kbd_mode.1
++++ kbd/docs/man/man1/kbd_mode.1
+@@ -12,7 +12,6 @@ kbd_mode \- report or set the keyboard m
  .I -C CONSOLE
  ]
  .SH DESCRIPTION
@@ -51,24 +53,26 @@ Forwarded: no
  .LP
  Without argument,
  .B kbd_mode
---- a/docs/man/man1/loadkeys.1.in
-+++ b/docs/man/man1/loadkeys.1.in
-@@ -37,7 +37,6 @@
- ]
+Index: kbd/docs/man/man1/loadkeys.1.gen
+===================================================================
+--- kbd.orig/docs/man/man1/loadkeys.1.gen
++++ kbd/docs/man/man1/loadkeys.1.gen
+@@ -19,7 +19,6 @@ loadkeys \- load keyboard translation ta
+ .I --parse
  .LP
  .SH DESCRIPTION
 -.IX "loadkeys command" "" "\fLloadkeys\fR command"
  .LP
  The program
  .B loadkeys
---- a/docs/man/man1/openvt.1
-+++ b/docs/man/man1/openvt.1
-@@ -27,7 +27,14 @@
- .I "\-e, \-\-exec"
+Index: kbd/docs/man/man1/openvt.1
+===================================================================
+--- kbd.orig/docs/man/man1/openvt.1
++++ kbd/docs/man/man1/openvt.1
+@@ -28,6 +28,13 @@ Force opening a VT without checking whet
  Directly execute the given command, without forking.
  This option is meant for use in
--.IR /etc/inittab .
-+.IR /etc/inittab .
+ .IR /etc/inittab .
 +If you want to use this feature in another context, be aware that
 +.B openvt
 +has to be a session leader in order for \-e to work.  See
@@ -77,11 +81,13 @@ Forwarded: no
 +.BR setsid (1)
 +on how to achieve this.
  .TP
- .I "\-s, \-\-switch"
+ \fB\-s\fR, \fB\-\-switch\fR
  Switch to the new VT when starting the command. The VT of the new command
---- a/docs/man/man1/psfaddtable.1
-+++ b/docs/man/man1/psfaddtable.1
-@@ -6,7 +6,6 @@
+Index: kbd/docs/man/man1/psfaddtable.1
+===================================================================
+--- kbd.orig/docs/man/man1/psfaddtable.1
++++ kbd/docs/man/man1/psfaddtable.1
+@@ -6,7 +6,6 @@ psfaddtable \- add a Unicode character t
  .B psfaddtable
  .I fontfile tablefile outfile
  .SH DESCRIPTION
@@ -89,9 +95,11 @@ Forwarded: no
  .LP
  .B psfaddtable
  takes a console font in .psf format given by
---- a/docs/man/man1/psfgettable.1
-+++ b/docs/man/man1/psfgettable.1
-@@ -7,7 +7,6 @@
+Index: kbd/docs/man/man1/psfgettable.1
+===================================================================
+--- kbd.orig/docs/man/man1/psfgettable.1
++++ kbd/docs/man/man1/psfgettable.1
+@@ -7,7 +7,6 @@ psfgettable \- extract the embedded Unic
  .I fontfile
  .RI [ outfile ]
  .SH DESCRIPTION
@@ -99,9 +107,11 @@ Forwarded: no
  .LP
  .B psfgettable
  extracts the embedded Unicode character table from a .psf format
---- a/docs/man/man1/psfstriptable.1
-+++ b/docs/man/man1/psfstriptable.1
-@@ -6,7 +6,6 @@
+Index: kbd/docs/man/man1/psfstriptable.1
+===================================================================
+--- kbd.orig/docs/man/man1/psfstriptable.1
++++ kbd/docs/man/man1/psfstriptable.1
+@@ -6,7 +6,6 @@ psfstriptable \- remove the embedded Uni
  .B psfstriptable
  .I fontfile outfile
  .SH DESCRIPTION
@@ -109,9 +119,11 @@ Forwarded: no
  .LP
  .B psfstriptable
  reads a .psf format console font from 
---- a/docs/man/man1/psfxtable.1
-+++ b/docs/man/man1/psfxtable.1
-@@ -14,7 +14,6 @@
+Index: kbd/docs/man/man1/psfxtable.1
+===================================================================
+--- kbd.orig/docs/man/man1/psfxtable.1
++++ kbd/docs/man/man1/psfxtable.1
+@@ -14,7 +14,6 @@ psfxtable \- handle Unicode character ta
  .IR outtable ]
  .RB [ \-nt ]
  .SH DESCRIPTION
@@ -119,9 +131,11 @@ Forwarded: no
  .LP
  .B psfxtable
  handles the embedded Unicode character table for .psf format
---- a/docs/man/man1/setleds.1
-+++ b/docs/man/man1/setleds.1
-@@ -7,7 +7,6 @@
+Index: kbd/docs/man/man1/setleds.1
+===================================================================
+--- kbd.orig/docs/man/man1/setleds.1
++++ kbd/docs/man/man1/setleds.1
+@@ -7,7 +7,6 @@ setleds \- set the keyboard leds
  .RI [ "-v" "] [" "-L" "] [" "-D" "] [" "-F" ]
  .RI [ {+|-}num "] [" {+|-}caps "] [" {+|-}scroll ]
  .SH DESCRIPTION
@@ -129,7 +143,7 @@ Forwarded: no
  .LP
  .B Setleds
  reports and changes the led flag settings of a VT
-@@ -16,7 +15,7 @@
+@@ -16,7 +15,7 @@ Without arguments,
  .B setleds
  prints the current settings.
  With arguments, it sets or clears the indicated flags
@@ -138,7 +152,7 @@ Forwarded: no
  and after the change are reported if the \-v flag is given.
  .LP
  The led flag settings are specific for each VT (and the VT
-@@ -37,7 +36,7 @@
+@@ -37,7 +36,7 @@ With option \-L,
  .B setleds
  will not touch the VT flags, but only change the leds.
  From this moment on, the leds will no longer reflect the VT flags
@@ -147,7 +161,7 @@ Forwarded: no
  .B "setleds -L"
  (without further arguments) will restore the situation in which
  the leds reflect the VT flags.
-@@ -45,7 +44,7 @@
+@@ -45,7 +44,7 @@ the leds reflect the VT flags.
  One might use
  .B setleds
  in /etc/rc to define the initial and default state of NumLock,
@@ -156,9 +170,11 @@ Forwarded: no
  .br
  .in +5m
  INITTY=/dev/tty[1-8]
---- a/docs/man/man1/setmetamode.1
-+++ b/docs/man/man1/setmetamode.1
-@@ -11,7 +11,6 @@
+Index: kbd/docs/man/man1/setmetamode.1
+===================================================================
+--- kbd.orig/docs/man/man1/setmetamode.1
++++ kbd/docs/man/man1/setmetamode.1
+@@ -11,7 +11,6 @@ setmetamode \- define the keyboard meta
  .I argument
  ]
  .SH DESCRIPTION
@@ -166,9 +182,11 @@ Forwarded: no
  .LP
  Without argument,
  .B setmetamode
---- a/docs/man/man1/showkey.1
-+++ b/docs/man/man1/showkey.1
-@@ -5,7 +5,6 @@
+Index: kbd/docs/man/man1/showkey.1
+===================================================================
+--- kbd.orig/docs/man/man1/showkey.1
++++ kbd/docs/man/man1/showkey.1
+@@ -5,7 +5,6 @@ showkey \- examine the codes sent by the
  .SH SYNOPSIS
  showkey [\-h|\-\-help] [\-a|\-\-ascii] [\-s|\-\-scancodes] [\-k|\-\-keycodes] [\-V|\-\-version]
  .SH DESCRIPTION
@@ -176,9 +194,11 @@ Forwarded: no
  .LP
  .B showkey
  prints to standard output either the scan codes or the keycode
---- a/docs/man/man1/unicode_start.1
-+++ b/docs/man/man1/unicode_start.1
-@@ -6,7 +6,6 @@
+Index: kbd/docs/man/man1/unicode_start.1
+===================================================================
+--- kbd.orig/docs/man/man1/unicode_start.1
++++ kbd/docs/man/man1/unicode_start.1
+@@ -6,7 +6,6 @@ unicode_start \- put keyboard and consol
  .B unicode_start
  .RI [ font " [" umap ]]
  .SH DESCRIPTION
@@ -186,9 +206,11 @@ Forwarded: no
  .LP
  The
  .B unicode_start
---- a/docs/man/man1/unicode_stop.1
-+++ b/docs/man/man1/unicode_stop.1
-@@ -5,7 +5,6 @@
+Index: kbd/docs/man/man1/unicode_stop.1
+===================================================================
+--- kbd.orig/docs/man/man1/unicode_stop.1
++++ kbd/docs/man/man1/unicode_stop.1
+@@ -5,7 +5,6 @@ unicode_stop \- revert keyboard and cons
  .SH SYNOPSIS
  .B unicode_stop
  .SH DESCRIPTION
@@ -196,8 +218,10 @@ Forwarded: no
  .LP
  The
  .B unicode_stop
---- a/docs/man/man5/keymaps.5
-+++ b/docs/man/man5/keymaps.5
+Index: kbd/docs/man/man5/keymaps.5
+===================================================================
+--- kbd.orig/docs/man/man5/keymaps.5
++++ kbd/docs/man/man5/keymaps.5
 @@ -5,11 +5,6 @@
  .SH NAME
  keymaps \- keyboard table descriptions for loadkeys and dumpkeys
@@ -210,9 +234,11 @@ Forwarded: no
  .LP
  These files are used by
  .BR loadkeys (1)
---- a/docs/man/man8/resizecons.8
-+++ b/docs/man/man8/resizecons.8
-@@ -56,7 +56,11 @@
+Index: kbd/docs/man/man8/resizecons.8
+===================================================================
+--- kbd.orig/docs/man/man8/resizecons.8
++++ kbd/docs/man/man8/resizecons.8
+@@ -56,7 +56,11 @@ yourself afterwards.
  
  .SH BUGS
  .I resizecons
@@ -225,38 +251,31 @@ Forwarded: no
  This command used to be called
  .I resize,
  but was renamed to avoid conflict with another command with the same name.
-@@ -66,5 +70,6 @@
+@@ -66,5 +70,6 @@ but was renamed to avoid conflict with a
  .BR stty (1),
  .BR selection (1),
  .BR restoretextmode (8),
 -.BR disalloc (8)
-+.BR disalloc (8),
++.BR deallocvt (8),
 +.BR fbset (1)
  
---- a/docs/man/man8/setfont.8.in
-+++ b/docs/man/man8/setfont.8.in
-@@ -12,7 +12,6 @@
- .IR H ]
+Index: kbd/docs/man/man8/setfont.8.gen
+===================================================================
+--- kbd.orig/docs/man/man8/setfont.8.gen
++++ kbd/docs/man/man8/setfont.8.gen
+@@ -25,7 +25,6 @@ setfont \- load EGA/VGA console screen f
+ .RB [ -f ]
  .RB [ -v ]
  .RB [ -V ]
 -.IX "setfont command" "" "\fLsetfont\fR command"
  .SH DESCRIPTION
  The
  .B setfont
---- a/docs/man/man8misc/mk_modmap.8
-+++ b/docs/man/man8misc/mk_modmap.8
-@@ -26,7 +26,7 @@
- (In Debian, these are in the "xlibs-dev" package).
- .SH NOTES
- Since XFree version 2.1, X initialises its keymap using the Linux
--keymap, so xmodmap will often be superflous.
-+keymap, so xmodmap will often be superfluous.
- 
- .SH SEE ALSO
- .BR dumpkeys (1),
---- a/docs/man/man8misc/setvesablank.8
-+++ b/docs/man/man8misc/setvesablank.8
-@@ -16,7 +16,6 @@
+Index: kbd/docs/man/man8misc/setvesablank.8
+===================================================================
+--- kbd.orig/docs/man/man8misc/setvesablank.8
++++ kbd/docs/man/man8misc/setvesablank.8
+@@ -16,7 +16,6 @@ setvesablank \- Turn VESA screen blankin
  ]
  .LP
  .SH DESCRIPTION

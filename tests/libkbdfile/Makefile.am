@@ -2,10 +2,9 @@ NULL =
 
 AM_CPPFLAGS = \
 	$(CODE_COVERAGE_CPPFLAGS) \
+	-I$(top_srcdir)/src/include \
 	-I$(top_srcdir)/src/libcommon \
-	-I$(top_srcdir)/src/libkbdfile \
-	-DDATADIR=\"$(realpath $(top_srcdir))/tests\" \
-	-DBUILDDIR=\"$(realpath $(builddir))\"
+	-DTESTDIR=\"$(realpath $(top_srcdir))/tests\"
 
 AM_CFLAGS = $(CHECK_CFLAGS) $(CODE_COVERAGE_CFLAGS)
 
@@ -28,4 +27,6 @@ noinst_PROGRAMS = \
 	libkbdfile-test11 \
 	libkbdfile-test12 \
 	libkbdfile-test13 \
+	libkbdfile-test14 \
+	libkbdfile-test15 \
 	$(NULL)

@@ -7,10 +7,8 @@
 #include "libcommon.h"
 
 int
-main(int __attribute__((unused)) argc, char **argv)
+main(int argc KBD_ATTR_UNUSED, char **argv KBD_ATTR_UNUSED)
 {
-	set_progname(argv[0]);
-
 	const char *stringvalues[30] = {
 		/* F1 .. F20 */
 		"\033[[A", "\033[[B", "\033[[C", "\033[[D", "\033[[E",
@@ -21,7 +19,7 @@ main(int __attribute__((unused)) argc, char **argv)
 		/* Find,    Insert,     Remove,     Select,     Prior */
 		"\033[1~", "\033[2~", "\033[3~", "\033[4~", "\033[5~",
 		/* Next,    Macro,      Help,       Do,         Pause */
-		"\033[6~", 0, 0, 0, 0
+		"\033[6~", NULL, NULL, NULL, NULL
 	};
 	unsigned int i;
 	struct lk_ctx *ctx;
@@ -38,7 +36,7 @@ main(int __attribute__((unused)) argc, char **argv)
 		strncpy((char *)ke.kb_string, stringvalues[i],
 		        sizeof(ke.kb_string));
 		ke.kb_string[sizeof(ke.kb_string) - 1] = 0;
-		ke.kb_func                             = (unsigned char) i;
+		ke.kb_func = (unsigned char) i;
 
 		if (lk_add_func(ctx, &ke) == -1)
 			kbd_error(EXIT_FAILURE, 0, "Unable to add function");

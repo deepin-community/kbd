@@ -4,7 +4,26 @@
 #include <stdarg.h>
 #include <kbdfile.h>
 
+/*
+ * NLS -- the library has to be independent on main program, so define
+ * KBD_TEXTDOMAIN_EXPLICIT before you include nls.h.
+ *
+ * Now we use kbd.po (=PACKAGE), rather than maintain the texts
+ * in the separate libkeymap.po file.
+ */
+#define LIBKEYMAP_TEXTDOMAIN	PACKAGE
+#define KBD_TEXTDOMAIN_EXPLICIT	LIBKEYMAP_TEXTDOMAIN
+#include "nls.h"
+
 #include "keymap.h"
+
+/**
+ * @brief The first 128 code points of Unicode are the same as ASCII.
+ */
+#define UNICODE_ASCII_LEN 128
+
+#define UNICODE_MASK 0xf000
+#define U(x) ((x) ^ UNICODE_MASK)
 
 /**
  * @brief The maximum number of include levels.
