@@ -2,3 +2,4 @@ Change-misleading-kbd_mode-message-for-XLATE-mode.patch
 Miscellaneous-manpage-corrections-and-additions.patch
 Various-fixes-to-the-openvt-utility.patch
 Check-for-X-in-kbd_mode.patch
+CVE-2026-72693.patch
